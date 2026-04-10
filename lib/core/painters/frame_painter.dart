@@ -270,7 +270,7 @@ class _PulseCurve extends Curve {
   const _PulseCurve();
 
   @override
-  double transform(double t) => (math.sin(t * 2 * math.pi) * 0.5 + 0.5);
+  double transform(double t) => math.sin(t * math.pi);
 }
 
 // ─────────────────────────────────────────────────────────────

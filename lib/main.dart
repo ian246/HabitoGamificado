@@ -1,67 +1,86 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_app_habitos/services/notification_service.dart';
+import 'package:flutter/services.dart';
+import 'core/theme/app_theme.dart';
+import 'services/storage_service.dart';
+import 'services/notification_service.dart';
+import 'screens/login_screen.dart';
+import 'screens/signup_screen.dart';
+import 'screens/home_screen.dart';
 
-Future<void> main() async {
+final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
+
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
+  SystemChrome.setSystemUIOverlayStyle(
+    const SystemUiOverlayStyle(statusBarColor: Colors.transparent),
+  );
+
+  await StorageService.instance.init();
   await NotificationService.instance.init();
-  runApp(const MyApp());
+
+  if (StorageService.instance.needsDailyReset()) {
+    await StorageService.instance.performDailyReset();
+  }
+
+  runApp(const HabitFlowApp());
 }
 
-class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+class HabitFlowApp extends StatefulWidget {
+  const HabitFlowApp({super.key});
 
-  // This widget is the root of your application.
+  static HabitFlowAppState of(BuildContext context) =>
+      context.findAncestorStateOfType<HabitFlowAppState>()!;
+
+  @override
+  State<HabitFlowApp> createState() => HabitFlowAppState();
+}
+
+class HabitFlowAppState extends State<HabitFlowApp> {
+  ThemeMode _themeMode = ThemeMode.system;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadTheme();
+  }
+
+  void _loadTheme() {
+    final profile = StorageService.instance.loadProfile();
+    if (profile != null) {
+      setState(() {
+        _themeMode = profile.darkMode ? ThemeMode.dark : ThemeMode.light;
+      });
+    }
+  }
+
+  void setTheme(bool isDark) {
+    setState(() => _themeMode = isDark ? ThemeMode.dark : ThemeMode.light);
+  }
+
   @override
   Widget build(BuildContext context) {
+    Widget home;
+    if (!StorageService.instance.hasProfile) {
+      home = const SignupScreen();
+    } else {
+      home = const LoginScreen();
+    }
+
     return MaterialApp(
-      title: 'Flutter Demo',
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
-      ),
-      home: const MyHomePage(title: 'Flutter Demo Home Page'),
-    );
-  }
-}
-
-class MyHomePage extends StatefulWidget {
-  const MyHomePage({super.key, required this.title});
-  final String title;
-  @override
-  State<MyHomePage> createState() => _MyHomePageState();
-}
-
-class _MyHomePageState extends State<MyHomePage> {
-  int _counter = 0;
-  void _incrementCounter() {
-    setState(() {
-      _counter++;
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-        title: Text(widget.title),
-      ),
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: <Widget>[
-            const Text('You have pushed the button this many times:'),
-            Text(
-              '$_counter',
-              style: Theme.of(context).textTheme.headlineMedium,
-            ),
-          ],
-        ),
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _incrementCounter,
-        tooltip: 'Increment',
-        child: const Icon(Icons.add),
-      ), 
+      navigatorKey: navigatorKey,
+      title: 'HabitFlow',
+      debugShowCheckedModeBanner: false,
+      theme: AppTheme.light,
+      darkTheme: AppTheme.dark,
+      themeMode: _themeMode,
+      home: home,
+      routes: {
+        '/home': (_) => const HomeScreen(),
+        '/login': (_) => const LoginScreen(),
+        '/signup': (_) => const SignupScreen(),
+      },
     );
   }
 }
