@@ -17,59 +17,76 @@
 /// ─────────────────────────────────────────────────────────────
 
 // ── Tier (nível de raridade de uma conquista) ─────────────────
-enum AchievementTier {
-  prata,
-  ouro,
-  platina,
-  esmeralda,
-  diamante,
-  mestre,
-}
+enum AchievementTier { prata, ouro, platina, esmeralda, diamante, mestre }
 
 extension AchievementTierExt on AchievementTier {
   String get label {
     switch (this) {
-      case AchievementTier.prata:    return 'Prata';
-      case AchievementTier.ouro:     return 'Ouro';
-      case AchievementTier.platina:  return 'Platina';
-      case AchievementTier.esmeralda:return 'Esmeralda';
-      case AchievementTier.diamante: return 'Diamante';
-      case AchievementTier.mestre:   return 'Mestre';
+      case AchievementTier.prata:
+        return 'Prata';
+      case AchievementTier.ouro:
+        return 'Ouro';
+      case AchievementTier.platina:
+        return 'Platina';
+      case AchievementTier.esmeralda:
+        return 'Esmeralda';
+      case AchievementTier.diamante:
+        return 'Diamante';
+      case AchievementTier.mestre:
+        return 'Mestre';
     }
   }
 
-  /// Caminho do PNG em assets/frames/
+  /// Caminho do PNG em assets/conquests/
   String get assetPath {
     switch (this) {
-      case AchievementTier.prata:    return 'assets/frames/prata_frame.png';
-      case AchievementTier.ouro:     return 'assets/frames/ouro_frame.png';
-      case AchievementTier.platina:  return 'assets/frames/platina_frame.png';
-      case AchievementTier.esmeralda:return 'assets/frames/esmeralda_frame.png';
-      case AchievementTier.diamante: return 'assets/frames/diamante_frame.png';
-      case AchievementTier.mestre:   return 'assets/frames/mestre_frame.png';
+      case AchievementTier.prata:
+        return 'assets/conquests/conquista_prata.png';
+      case AchievementTier.ouro:
+        return 'assets/conquests/conquista_ouro.png';
+      case AchievementTier.platina:
+        return 'assets/conquests/conquista_platina.png';
+      case AchievementTier.esmeralda:
+        return 'assets/conquests/conquista_esmeralda.png';
+      case AchievementTier.diamante:
+        return 'assets/conquests/conquista_diamante.png';
+      case AchievementTier.mestre:
+        return 'assets/conquests/conquista_mestre.png';
     }
   }
 
   /// Cor associada ao tier (usada em textos e bordas)
   int get colorValue {
     switch (this) {
-      case AchievementTier.prata:    return 0xFFB0B8C1;
-      case AchievementTier.ouro:     return 0xFFD4AF37;
-      case AchievementTier.platina:  return 0xFF9EA8B3;
-      case AchievementTier.esmeralda:return 0xFF1A7A4A;
-      case AchievementTier.diamante: return 0xFF1A6B9E;
-      case AchievementTier.mestre:   return 0xFF6B2FA0;
+      case AchievementTier.prata:
+        return 0xFFB0B8C1;
+      case AchievementTier.ouro:
+        return 0xFFD4AF37;
+      case AchievementTier.platina:
+        return 0xFF9EA8B3;
+      case AchievementTier.esmeralda:
+        return 0xFF1A7A4A;
+      case AchievementTier.diamante:
+        return 0xFF1A6B9E;
+      case AchievementTier.mestre:
+        return 0xFF6B2FA0;
     }
   }
 
   int get index2 {
     switch (this) {
-      case AchievementTier.prata:    return 0;
-      case AchievementTier.ouro:     return 1;
-      case AchievementTier.platina:  return 2;
-      case AchievementTier.esmeralda:return 3;
-      case AchievementTier.diamante: return 4;
-      case AchievementTier.mestre:   return 5;
+      case AchievementTier.prata:
+        return 0;
+      case AchievementTier.ouro:
+        return 1;
+      case AchievementTier.platina:
+        return 2;
+      case AchievementTier.esmeralda:
+        return 3;
+      case AchievementTier.diamante:
+        return 4;
+      case AchievementTier.mestre:
+        return 5;
     }
   }
 }
@@ -77,8 +94,8 @@ extension AchievementTierExt on AchievementTier {
 // ── Definição de um nível dentro de uma trilha ────────────────
 class TrailLevel {
   final AchievementTier tier;
-  final int             threshold; // valor necessário para atingir este tier
-  final String          description; // ex: '15 a 50 hábitos concluídos'
+  final int threshold; // valor necessário para atingir este tier
+  final String description; // ex: '15 a 50 hábitos concluídos'
 
   const TrailLevel({
     required this.tier,
@@ -89,10 +106,10 @@ class TrailLevel {
 
 // ── Definição de uma trilha completa ─────────────────────────
 class AchievementTrail {
-  final String          id;
-  final String          name;
-  final String          emoji;
-  final String          description;
+  final String id;
+  final String name;
+  final String emoji;
+  final String description;
   final List<TrailLevel> levels; // sempre 6, de Prata a Mestre
 
   const AchievementTrail({
@@ -143,122 +160,314 @@ class AchievementTrail {
 // ── As 8 trilhas do HabitFlow ─────────────────────────────────
 abstract final class AchievementTrails {
   static const constante = AchievementTrail(
-    id:          'constante',
-    name:        'O Constante',
-    emoji:       '🔥',
+    id: 'constante',
+    name: 'O Constante',
+    emoji: '🔥',
     description: 'Dias seguidos sem quebrar a sequência',
     levels: [
-      TrailLevel(tier: AchievementTier.prata,    threshold: 5,   description: '5 dias seguidos'),
-      TrailLevel(tier: AchievementTier.ouro,     threshold: 15,  description: '15 dias seguidos'),
-      TrailLevel(tier: AchievementTier.platina,  threshold: 30,  description: '30 dias seguidos'),
-      TrailLevel(tier: AchievementTier.esmeralda,threshold: 75,  description: '75 dias seguidos'),
-      TrailLevel(tier: AchievementTier.diamante, threshold: 150, description: '150 dias seguidos'),
-      TrailLevel(tier: AchievementTier.mestre,   threshold: 300, description: '300 dias seguidos'),
+      TrailLevel(
+        tier: AchievementTier.prata,
+        threshold: 5,
+        description: '5 dias seguidos',
+      ),
+      TrailLevel(
+        tier: AchievementTier.ouro,
+        threshold: 15,
+        description: '15 dias seguidos',
+      ),
+      TrailLevel(
+        tier: AchievementTier.platina,
+        threshold: 30,
+        description: '30 dias seguidos',
+      ),
+      TrailLevel(
+        tier: AchievementTier.esmeralda,
+        threshold: 75,
+        description: '75 dias seguidos',
+      ),
+      TrailLevel(
+        tier: AchievementTier.diamante,
+        threshold: 150,
+        description: '150 dias seguidos',
+      ),
+      TrailLevel(
+        tier: AchievementTier.mestre,
+        threshold: 300,
+        description: '300 dias seguidos',
+      ),
     ],
   );
 
   static const dedicado = AchievementTrail(
-    id:          'dedicado',
-    name:        'O Dedicado',
-    emoji:       '✅',
+    id: 'dedicado',
+    name: 'O Dedicado',
+    emoji: '✅',
     description: 'Total de hábitos concluídos a 100%',
     levels: [
-      TrailLevel(tier: AchievementTier.prata,    threshold: 15,   description: '15 hábitos concluídos'),
-      TrailLevel(tier: AchievementTier.ouro,     threshold: 50,   description: '50 hábitos concluídos'),
-      TrailLevel(tier: AchievementTier.platina,  threshold: 100,  description: '100 hábitos concluídos'),
-      TrailLevel(tier: AchievementTier.esmeralda,threshold: 250,  description: '250 hábitos concluídos'),
-      TrailLevel(tier: AchievementTier.diamante, threshold: 500,  description: '500 hábitos concluídos'),
-      TrailLevel(tier: AchievementTier.mestre,   threshold: 1000, description: '1000 hábitos concluídos'),
+      TrailLevel(
+        tier: AchievementTier.prata,
+        threshold: 15,
+        description: '15 hábitos concluídos',
+      ),
+      TrailLevel(
+        tier: AchievementTier.ouro,
+        threshold: 50,
+        description: '50 hábitos concluídos',
+      ),
+      TrailLevel(
+        tier: AchievementTier.platina,
+        threshold: 100,
+        description: '100 hábitos concluídos',
+      ),
+      TrailLevel(
+        tier: AchievementTier.esmeralda,
+        threshold: 250,
+        description: '250 hábitos concluídos',
+      ),
+      TrailLevel(
+        tier: AchievementTier.diamante,
+        threshold: 500,
+        description: '500 hábitos concluídos',
+      ),
+      TrailLevel(
+        tier: AchievementTier.mestre,
+        threshold: 1000,
+        description: '1000 hábitos concluídos',
+      ),
     ],
   );
 
   static const perfeccionista = AchievementTrail(
-    id:          'perfeccionista',
-    name:        'O Perfeccionista',
-    emoji:       '⭐',
+    id: 'perfeccionista',
+    name: 'O Perfeccionista',
+    emoji: '⭐',
     description: 'Dias com todos os hábitos 100% concluídos',
     levels: [
-      TrailLevel(tier: AchievementTier.prata,    threshold: 5,   description: '5 dias perfeitos'),
-      TrailLevel(tier: AchievementTier.ouro,     threshold: 15,  description: '15 dias perfeitos'),
-      TrailLevel(tier: AchievementTier.platina,  threshold: 30,  description: '30 dias perfeitos'),
-      TrailLevel(tier: AchievementTier.esmeralda,threshold: 60,  description: '60 dias perfeitos'),
-      TrailLevel(tier: AchievementTier.diamante, threshold: 100, description: '100 dias perfeitos'),
-      TrailLevel(tier: AchievementTier.mestre,   threshold: 200, description: '200 dias perfeitos'),
+      TrailLevel(
+        tier: AchievementTier.prata,
+        threshold: 5,
+        description: '5 dias perfeitos',
+      ),
+      TrailLevel(
+        tier: AchievementTier.ouro,
+        threshold: 15,
+        description: '15 dias perfeitos',
+      ),
+      TrailLevel(
+        tier: AchievementTier.platina,
+        threshold: 30,
+        description: '30 dias perfeitos',
+      ),
+      TrailLevel(
+        tier: AchievementTier.esmeralda,
+        threshold: 60,
+        description: '60 dias perfeitos',
+      ),
+      TrailLevel(
+        tier: AchievementTier.diamante,
+        threshold: 100,
+        description: '100 dias perfeitos',
+      ),
+      TrailLevel(
+        tier: AchievementTier.mestre,
+        threshold: 200,
+        description: '200 dias perfeitos',
+      ),
     ],
   );
 
   static const madrugador = AchievementTrail(
-    id:          'madrugador',
-    name:        'O Madrugador',
-    emoji:       '🌅',
+    id: 'madrugador',
+    name: 'O Madrugador',
+    emoji: '🌅',
     description: 'Hábitos da manhã concluídos a 100%',
     levels: [
-      TrailLevel(tier: AchievementTier.prata,    threshold: 10,  description: '10 manhãs concluídas'),
-      TrailLevel(tier: AchievementTier.ouro,     threshold: 30,  description: '30 manhãs concluídas'),
-      TrailLevel(tier: AchievementTier.platina,  threshold: 75,  description: '75 manhãs concluídas'),
-      TrailLevel(tier: AchievementTier.esmeralda,threshold: 150, description: '150 manhãs concluídas'),
-      TrailLevel(tier: AchievementTier.diamante, threshold: 300, description: '300 manhãs concluídas'),
-      TrailLevel(tier: AchievementTier.mestre,   threshold: 500, description: '500 manhãs concluídas'),
+      TrailLevel(
+        tier: AchievementTier.prata,
+        threshold: 10,
+        description: '10 manhãs concluídas',
+      ),
+      TrailLevel(
+        tier: AchievementTier.ouro,
+        threshold: 30,
+        description: '30 manhãs concluídas',
+      ),
+      TrailLevel(
+        tier: AchievementTier.platina,
+        threshold: 75,
+        description: '75 manhãs concluídas',
+      ),
+      TrailLevel(
+        tier: AchievementTier.esmeralda,
+        threshold: 150,
+        description: '150 manhãs concluídas',
+      ),
+      TrailLevel(
+        tier: AchievementTier.diamante,
+        threshold: 300,
+        description: '300 manhãs concluídas',
+      ),
+      TrailLevel(
+        tier: AchievementTier.mestre,
+        threshold: 500,
+        description: '500 manhãs concluídas',
+      ),
     ],
   );
 
   static const vespertino = AchievementTrail(
-    id:          'vespertino',
-    name:        'O Vespertino',
-    emoji:       '☀️',
+    id: 'vespertino',
+    name: 'O Vespertino',
+    emoji: '☀️',
     description: 'Hábitos da tarde concluídos a 100%',
     levels: [
-      TrailLevel(tier: AchievementTier.prata,    threshold: 10,  description: '10 tardes concluídas'),
-      TrailLevel(tier: AchievementTier.ouro,     threshold: 30,  description: '30 tardes concluídas'),
-      TrailLevel(tier: AchievementTier.platina,  threshold: 75,  description: '75 tardes concluídas'),
-      TrailLevel(tier: AchievementTier.esmeralda,threshold: 150, description: '150 tardes concluídas'),
-      TrailLevel(tier: AchievementTier.diamante, threshold: 300, description: '300 tardes concluídas'),
-      TrailLevel(tier: AchievementTier.mestre,   threshold: 500, description: '500 tardes concluídas'),
+      TrailLevel(
+        tier: AchievementTier.prata,
+        threshold: 10,
+        description: '10 tardes concluídas',
+      ),
+      TrailLevel(
+        tier: AchievementTier.ouro,
+        threshold: 30,
+        description: '30 tardes concluídas',
+      ),
+      TrailLevel(
+        tier: AchievementTier.platina,
+        threshold: 75,
+        description: '75 tardes concluídas',
+      ),
+      TrailLevel(
+        tier: AchievementTier.esmeralda,
+        threshold: 150,
+        description: '150 tardes concluídas',
+      ),
+      TrailLevel(
+        tier: AchievementTier.diamante,
+        threshold: 300,
+        description: '300 tardes concluídas',
+      ),
+      TrailLevel(
+        tier: AchievementTier.mestre,
+        threshold: 500,
+        description: '500 tardes concluídas',
+      ),
     ],
   );
 
   static const noturno = AchievementTrail(
-    id:          'noturno',
-    name:        'O Noturno',
-    emoji:       '🌙',
+    id: 'noturno',
+    name: 'O Noturno',
+    emoji: '🌙',
     description: 'Hábitos da noite concluídos a 100%',
     levels: [
-      TrailLevel(tier: AchievementTier.prata,    threshold: 10,  description: '10 noites concluídas'),
-      TrailLevel(tier: AchievementTier.ouro,     threshold: 30,  description: '30 noites concluídas'),
-      TrailLevel(tier: AchievementTier.platina,  threshold: 75,  description: '75 noites concluídas'),
-      TrailLevel(tier: AchievementTier.esmeralda,threshold: 150, description: '150 noites concluídas'),
-      TrailLevel(tier: AchievementTier.diamante, threshold: 300, description: '300 noites concluídas'),
-      TrailLevel(tier: AchievementTier.mestre,   threshold: 500, description: '500 noites concluídas'),
+      TrailLevel(
+        tier: AchievementTier.prata,
+        threshold: 10,
+        description: '10 noites concluídas',
+      ),
+      TrailLevel(
+        tier: AchievementTier.ouro,
+        threshold: 30,
+        description: '30 noites concluídas',
+      ),
+      TrailLevel(
+        tier: AchievementTier.platina,
+        threshold: 75,
+        description: '75 noites concluídas',
+      ),
+      TrailLevel(
+        tier: AchievementTier.esmeralda,
+        threshold: 150,
+        description: '150 noites concluídas',
+      ),
+      TrailLevel(
+        tier: AchievementTier.diamante,
+        threshold: 300,
+        description: '300 noites concluídas',
+      ),
+      TrailLevel(
+        tier: AchievementTier.mestre,
+        threshold: 500,
+        description: '500 noites concluídas',
+      ),
     ],
   );
 
   static const colecionador = AchievementTrail(
-    id:          'colecionador',
-    name:        'O Colecionador',
-    emoji:       '📚',
+    id: 'colecionador',
+    name: 'O Colecionador',
+    emoji: '📚',
     description: 'Hábitos diferentes criados no app',
     levels: [
-      TrailLevel(tier: AchievementTier.prata,    threshold: 3,  description: '3 hábitos criados'),
-      TrailLevel(tier: AchievementTier.ouro,     threshold: 5,  description: '5 hábitos criados'),
-      TrailLevel(tier: AchievementTier.platina,  threshold: 8,  description: '8 hábitos criados'),
-      TrailLevel(tier: AchievementTier.esmeralda,threshold: 12, description: '12 hábitos criados'),
-      TrailLevel(tier: AchievementTier.diamante, threshold: 16, description: '16 hábitos criados'),
-      TrailLevel(tier: AchievementTier.mestre,   threshold: 20, description: '20 hábitos criados'),
+      TrailLevel(
+        tier: AchievementTier.prata,
+        threshold: 3,
+        description: '3 hábitos criados',
+      ),
+      TrailLevel(
+        tier: AchievementTier.ouro,
+        threshold: 5,
+        description: '5 hábitos criados',
+      ),
+      TrailLevel(
+        tier: AchievementTier.platina,
+        threshold: 8,
+        description: '8 hábitos criados',
+      ),
+      TrailLevel(
+        tier: AchievementTier.esmeralda,
+        threshold: 12,
+        description: '12 hábitos criados',
+      ),
+      TrailLevel(
+        tier: AchievementTier.diamante,
+        threshold: 16,
+        description: '16 hábitos criados',
+      ),
+      TrailLevel(
+        tier: AchievementTier.mestre,
+        threshold: 20,
+        description: '20 hábitos criados',
+      ),
     ],
   );
 
   static const guerreiro = AchievementTrail(
-    id:          'guerreiro',
-    name:        'O Guerreiro',
-    emoji:       '⚔️',
+    id: 'guerreiro',
+    name: 'O Guerreiro',
+    emoji: '⚔️',
     description: 'Total de mini tarefas concluídas',
     levels: [
-      TrailLevel(tier: AchievementTier.prata,    threshold: 50,   description: '50 tarefas concluídas'),
-      TrailLevel(tier: AchievementTier.ouro,     threshold: 150,  description: '150 tarefas concluídas'),
-      TrailLevel(tier: AchievementTier.platina,  threshold: 300,  description: '300 tarefas concluídas'),
-      TrailLevel(tier: AchievementTier.esmeralda,threshold: 600,  description: '600 tarefas concluídas'),
-      TrailLevel(tier: AchievementTier.diamante, threshold: 1000, description: '1000 tarefas concluídas'),
-      TrailLevel(tier: AchievementTier.mestre,   threshold: 2000, description: '2000 tarefas concluídas'),
+      TrailLevel(
+        tier: AchievementTier.prata,
+        threshold: 50,
+        description: '50 tarefas concluídas',
+      ),
+      TrailLevel(
+        tier: AchievementTier.ouro,
+        threshold: 150,
+        description: '150 tarefas concluídas',
+      ),
+      TrailLevel(
+        tier: AchievementTier.platina,
+        threshold: 300,
+        description: '300 tarefas concluídas',
+      ),
+      TrailLevel(
+        tier: AchievementTier.esmeralda,
+        threshold: 600,
+        description: '600 tarefas concluídas',
+      ),
+      TrailLevel(
+        tier: AchievementTier.diamante,
+        threshold: 1000,
+        description: '1000 tarefas concluídas',
+      ),
+      TrailLevel(
+        tier: AchievementTier.mestre,
+        threshold: 2000,
+        description: '2000 tarefas concluídas',
+      ),
     ],
   );
 
