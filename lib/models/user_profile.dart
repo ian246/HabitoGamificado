@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'achievement.dart';
+import 'achievement_trail.dart';
 
 /// ─────────────────────────────────────────────────────────────
 /// UserProfile — perfil local do usuário
@@ -27,6 +28,10 @@ class UserProfile {
   /// Chave = AchievementTrail.id   Valor = progresso atual (int)
   final Map<String, int> trailProgress;
 
+  /// Chave do título escolhido pelo usuário para exibição (formato: "trailId|tierIndex2").
+  /// Null significa usar o fallback automático (maior tier conquistado).
+  final String? selectedTitleKey;
+
   const UserProfile({
     required this.nome,
     required this.apelido,
@@ -39,6 +44,7 @@ class UserProfile {
     this.conquistas = const {},
     this.diasPerfeitos = const [],
     this.trailProgress = const {},
+    this.selectedTitleKey,
   });
 
   // ── Factory para novo perfil ──────────────────────────────
@@ -113,6 +119,18 @@ class UserProfile {
     return ((xpTotal - xpNivelAtual) / range).clamp(0.0, 1.0);
   }
 
+  // ── Título ativo ──────────────────────────────────────────
+
+  /// Retorna o título que deve ser exibido no app.
+  /// Usa o título selecionado pelo usuário; se nenhum, usa o de maior prestígio.
+  ({AchievementTrail trail, TrailLevel level})? get activeTitle {
+    if (selectedTitleKey != null) {
+      final found = AchievementTrails.levelByKey(selectedTitleKey!, trailProgress);
+      if (found != null) return found;
+    }
+    return AchievementTrails.highestEarnedLevel(trailProgress);
+  }
+
   // ── copyWith ─────────────────────────────────────────────
   UserProfile copyWith({
     String? nome,
@@ -126,6 +144,7 @@ class UserProfile {
     Map<AchievementCategory, Achievement>? conquistas,
     List<String>? diasPerfeitos,
     Map<String, int>? trailProgress,
+    Object? selectedTitleKey = _sentinel,
   }) => UserProfile(
     nome: nome ?? this.nome,
     apelido: apelido ?? this.apelido,
@@ -138,7 +157,12 @@ class UserProfile {
     conquistas: conquistas ?? this.conquistas,
     diasPerfeitos: diasPerfeitos ?? this.diasPerfeitos,
     trailProgress: trailProgress ?? this.trailProgress,
+    selectedTitleKey: selectedTitleKey == _sentinel
+        ? this.selectedTitleKey
+        : selectedTitleKey as String?,
   );
+
+  static const Object _sentinel = Object();
 
   /// Incrementa o progresso de uma trilha de conquistas
   UserProfile incrementarTrilha(String trailId, int quantidade) {
@@ -180,6 +204,7 @@ class UserProfile {
     'conquistas': conquistas.map((k, v) => MapEntry(k.valor, v.toJson())),
     'diasPerfeitos': diasPerfeitos,
     'trailProgress': trailProgress,
+    if (selectedTitleKey != null) 'selectedTitleKey': selectedTitleKey,
   };
 
   factory UserProfile.fromJson(Map<String, dynamic> json) {
@@ -204,6 +229,7 @@ class UserProfile {
       conquistas: conquistas,
       diasPerfeitos: List<String>.from(json['diasPerfeitos'] as List? ?? []),
       trailProgress: Map<String, int>.from(json['trailProgress'] as Map? ?? {}),
+      selectedTitleKey: json['selectedTitleKey'] as String?,
     );
   }
 

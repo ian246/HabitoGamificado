@@ -201,6 +201,7 @@ class _TrailCardRefined extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tier = trail.currentTier(progress);
+    final currentLevel = trail.currentLevel(progress);
     final next = trail.nextLevel(progress);
     final pct = trail.progressToNext(progress);
     final isMaxed = trail.isMaxed(progress);
@@ -226,7 +227,8 @@ class _TrailCardRefined extends StatelessWidget {
               Expanded(
                 child: _TierDisplay(tier: tier, size: 60, locked: tier == null),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 6),
+              // Nome da trilha
               Text(
                 '${trail.emoji} ${trail.name}',
                 style: const TextStyle(
@@ -236,7 +238,30 @@ class _TrailCardRefined extends StatelessWidget {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),
-              const SizedBox(height: 10),
+              // Título da patente atual (tag estilizada)
+              if (currentLevel != null) ...[
+                const SizedBox(height: 4),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: color.withOpacity(0.15),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: color.withOpacity(0.4), width: 1),
+                  ),
+                  child: Text(
+                    currentLevel.title,
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w700,
+                      color: color,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ] else
+                const SizedBox(height: 10),
+              const SizedBox(height: 8),
               ClipRRect(
                 borderRadius: BorderRadius.circular(10),
                 child: LinearProgressIndicator(
@@ -406,12 +431,20 @@ class _TrailDetailSheet extends StatelessWidget {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                lvl.tier.label,
+                                earned ? lvl.title : lvl.tier.label,
                                 style: TextStyle(
                                   fontWeight: FontWeight.bold,
                                   color: earned ? color : AppColors.textHint,
                                 ),
                               ),
+                              if (earned)
+                                Text(
+                                  lvl.tier.label,
+                                  style: AppTextStyles.xpLabel.copyWith(
+                                    fontSize: 10,
+                                    color: color.withOpacity(0.7),
+                                  ),
+                                ),
                               Text(
                                 lvl.description,
                                 style: AppTextStyles.xpLabel.copyWith(

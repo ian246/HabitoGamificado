@@ -4,6 +4,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../core/theme/app_colors.dart';
 import '../core/theme/app_text_styles.dart';
+import '../models/achievement_trail.dart';
 import '../models/user_profile.dart';
 import '../models/achievement.dart';
 import '../services/storage_service.dart';
@@ -112,6 +113,33 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(kProfilePhotoKey, picked.path);
     setState(() => _photoPath = picked.path);
+  }
+
+  /// Abre o BottomSheet de seleção de título e salva a escolha.
+  Future<void> _selectTitle(BuildContext ctx) async {
+    final profile = widget.profile;
+    if (profile == null) return;
+    final unlocked = AchievementTrails.allUnlockedLevels(profile.trailProgress);
+    if (unlocked.isEmpty) {
+      ScaffoldMessenger.of(ctx).showSnackBar(
+        const SnackBar(content: Text('Conquiste seu primeiro título primeiro! 🏆')),
+      );
+      return;
+    }
+    await showModalBottomSheet(
+      context: ctx,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _TitleSelectionSheet(
+        unlocked: unlocked,
+        currentKey: profile.selectedTitleKey,
+        onSelect: (key) async {
+          final updated = profile.copyWith(selectedTitleKey: key);
+          await StorageService.instance.saveProfile(updated);
+          widget.onProfileUpdate?.call();
+        },
+      ),
+    );
   }
 
   Future<void> _toggleDark(bool value) async {
@@ -416,6 +444,64 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ],
           ),
         ),
+
+        // Tag de Título Ativo (clicável)
+        if (profile != null) ...[
+          const SizedBox(height: 10),
+          Builder(
+            builder: (ctx) {
+              final active = profile.activeTitle;
+              final hasTitle = active != null;
+              final titleColor = hasTitle
+                  ? Color(active.level.tier.colorValue)
+                  : AppColors.textHint;
+              return GestureDetector(
+                onTap: () => _selectTitle(ctx),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: titleColor.withOpacity(0.12),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: titleColor.withOpacity(0.4), width: 1.2),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (hasTitle) ...[
+                        Text(active.trail.emoji,
+                            style: const TextStyle(fontSize: 13)),
+                        const SizedBox(width: 5),
+                        ConstrainedBox(
+                          constraints: const BoxConstraints(maxWidth: 180),
+                          child: Text(
+                            active.level.title,
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                              color: titleColor,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ] else
+                        Text(
+                          'Sem título ainda',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w500,
+                            color: AppColors.textHint,
+                          ),
+                        ),
+                      const SizedBox(width: 6),
+                      Icon(Icons.edit_rounded, size: 12, color: titleColor),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+        ],
       ],
     );
   }
@@ -749,6 +835,234 @@ class _StatRow extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+// ── Seletor de Título ─────────────────────────────────────────
+class _TitleSelectionSheet extends StatefulWidget {
+  final List<({AchievementTrail trail, TrailLevel level})> unlocked;
+  final String? currentKey;
+  final Future<void> Function(String? key) onSelect;
+
+  const _TitleSelectionSheet({
+    required this.unlocked,
+    required this.currentKey,
+    required this.onSelect,
+  });
+
+  @override
+  State<_TitleSelectionSheet> createState() => _TitleSelectionSheetState();
+}
+
+class _TitleSelectionSheetState extends State<_TitleSelectionSheet> {
+  late String? _selectedKey;
+  bool _saving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedKey = widget.currentKey;
+  }
+
+  Future<void> _confirm() async {
+    setState(() => _saving = true);
+    await widget.onSelect(_selectedKey);
+    if (mounted) Navigator.pop(context);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return DraggableScrollableSheet(
+      initialChildSize: 0.6,
+      minChildSize: 0.4,
+      maxChildSize: 0.92,
+      expand: false,
+      builder: (_, scrollController) => Container(
+        decoration: BoxDecoration(
+          color: Theme.of(context).scaffoldBackgroundColor,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        child: Column(
+          children: [
+            // Handle
+            const SizedBox(height: 12),
+            Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: AppColors.surfaceHover,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const SizedBox(height: 16),
+
+            // Header
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: Row(
+                children: [
+                  const Text('🏆', style: TextStyle(fontSize: 22)),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Escolha seu Título',
+                          style: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                        Text(
+                          '${widget.unlocked.length} títulos desbloqueados',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: AppColors.textSecondary,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+            const Divider(height: 1),
+
+            // Lista de títulos desbloqueados
+            Expanded(
+              child: ListView.builder(
+                controller: scrollController,
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+                itemCount: widget.unlocked.length,
+                itemBuilder: (_, i) {
+                  final item = widget.unlocked[i];
+                  final key = AchievementTrails.titleKey(
+                    item.trail.id,
+                    item.level.tier,
+                  );
+                  final isSelected = _selectedKey == key;
+                  final tierColor = Color(item.level.tier.colorValue);
+
+                  return GestureDetector(
+                    onTap: () => setState(() => _selectedKey = key),
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 200),
+                      margin: const EdgeInsets.only(bottom: 10),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 14,
+                      ),
+                      decoration: BoxDecoration(
+                        color: isSelected
+                            ? tierColor.withOpacity(0.12)
+                            : (isDark
+                                ? AppColors.surfaceCard
+                                : Colors.grey.shade50),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(
+                          color: isSelected
+                              ? tierColor
+                              : AppColors.surfaceHover,
+                          width: isSelected ? 2 : 1,
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          // Emoji da trilha + ícone do tier
+                          Text(
+                            item.trail.emoji,
+                            style: const TextStyle(fontSize: 24),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  item.level.title,
+                                  style: TextStyle(
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w700,
+                                    color: isSelected
+                                        ? tierColor
+                                        : null,
+                                  ),
+                                ),
+                                Text(
+                                  '${item.trail.name} · ${item.level.tier.label}',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    color: isSelected
+                                        ? tierColor.withOpacity(0.8)
+                                        : AppColors.textSecondary,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          if (isSelected)
+                            Icon(
+                              Icons.check_circle_rounded,
+                              color: tierColor,
+                              size: 22,
+                            )
+                          else
+                            Icon(
+                              Icons.radio_button_unchecked_rounded,
+                              color: AppColors.surfaceHover,
+                              size: 22,
+                            ),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+
+            // Botão Confirmar
+            SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+                child: SizedBox(
+                  width: double.infinity,
+                  child: FilledButton(
+                    onPressed: _saving ? null : _confirm,
+                    style: FilledButton.styleFrom(
+                      backgroundColor: AppColors.primary,
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                    ),
+                    child: _saving
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
+                          )
+                        : const Text(
+                            'Confirmar título',
+                            style: TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
