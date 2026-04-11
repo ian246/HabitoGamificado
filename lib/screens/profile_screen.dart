@@ -13,7 +13,7 @@ import 'signup_screen.dart';
 import 'login_screen.dart' show kProfilePhotoKey;
 
 class ProfileScreen extends StatefulWidget {
-  final UserProfile?  profile;
+  final UserProfile? profile;
   final VoidCallback? onProfileUpdate;
 
   const ProfileScreen({super.key, this.profile, this.onProfileUpdate});
@@ -24,9 +24,9 @@ class ProfileScreen extends StatefulWidget {
 
 class _ProfileScreenState extends State<ProfileScreen> {
   // ── IMPORTANTE: padrão é FALSE (modo CLARO) ───────────────
-  bool    _darkMode  = false;
+  bool _darkMode = false;
   String? _photoPath;
-  final   _picker    = ImagePicker();
+  final _picker = ImagePicker();
 
   @override
   void initState() {
@@ -38,7 +38,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   Future<void> _loadPhoto() async {
     final prefs = await SharedPreferences.getInstance();
-    final path  = prefs.getString(kProfilePhotoKey);
+    final path = prefs.getString(kProfilePhotoKey);
     if (path != null && File(path).existsSync()) {
       setState(() => _photoPath = path);
     }
@@ -48,32 +48,46 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final source = await showModalBottomSheet<ImageSource>(
       context: context,
       shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
       builder: (_) => SafeArea(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             const SizedBox(height: 8),
-            Container(width: 40, height: 4,
-                decoration: BoxDecoration(
-                    color: AppColors.surfaceHover,
-                    borderRadius: BorderRadius.circular(2))),
+            Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: AppColors.surfaceHover,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
             const SizedBox(height: 16),
             ListTile(
-              leading: const Icon(Icons.camera_alt_outlined, color: AppColors.primary),
-              title:   const Text('Câmera'),
-              onTap:   () => Navigator.pop(context, ImageSource.camera),
+              leading: const Icon(
+                Icons.camera_alt_outlined,
+                color: AppColors.primary,
+              ),
+              title: const Text('Câmera'),
+              onTap: () => Navigator.pop(context, ImageSource.camera),
             ),
             ListTile(
-              leading: const Icon(Icons.photo_library_outlined, color: AppColors.primary),
-              title:   const Text('Galeria'),
-              onTap:   () => Navigator.pop(context, ImageSource.gallery),
+              leading: const Icon(
+                Icons.photo_library_outlined,
+                color: AppColors.primary,
+              ),
+              title: const Text('Galeria'),
+              onTap: () => Navigator.pop(context, ImageSource.gallery),
             ),
             if (_photoPath != null)
               ListTile(
-                leading: const Icon(Icons.delete_outline_rounded, color: AppColors.error),
-                title:   const Text('Remover foto'),
-                onTap:   () async {
+                leading: const Icon(
+                  Icons.delete_outline_rounded,
+                  color: AppColors.error,
+                ),
+                title: const Text('Remover foto'),
+                onTap: () async {
                   final prefs = await SharedPreferences.getInstance();
                   await prefs.remove(kProfilePhotoKey);
                   setState(() => _photoPath = null);
@@ -89,7 +103,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
     if (source == null || !mounted) return;
 
     final picked = await _picker.pickImage(
-        source: source, maxWidth: 400, maxHeight: 400, imageQuality: 85);
+      source: source,
+      maxWidth: 400,
+      maxHeight: 400,
+      imageQuality: 85,
+    );
     if (picked == null) return;
 
     final prefs = await SharedPreferences.getInstance();
@@ -101,7 +119,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
     setState(() => _darkMode = value);
     final profile = widget.profile;
     if (profile == null) return;
-    await StorageService.instance.saveProfile(profile.copyWith(darkMode: value));
+    await StorageService.instance.saveProfile(
+      profile.copyWith(darkMode: value),
+    );
     if (!mounted) return;
     HabitFlowApp.of(context).setTheme(value);
     widget.onProfileUpdate?.call();
@@ -110,21 +130,27 @@ class _ProfileScreenState extends State<ProfileScreen> {
   int get _maxStreak {
     final p = widget.profile;
     if (p == null || p.conquistas.isEmpty) return 0;
-    return p.conquistas.values.map((a) => a.streakAtual).fold(0, (a, b) => a > b ? a : b);
+    return p.conquistas.values
+        .map((a) => a.streakAtual)
+        .fold(0, (a, b) => a > b ? a : b);
   }
 
   Future<void> _resetApp() async {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
-        title:   const Text('Resetar app?'),
+        title: const Text('Resetar app?'),
         content: const Text('Apagará todos os dados. Não pode ser desfeito.'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false),
-              child: const Text('Cancelar')),
-          TextButton(onPressed: () => Navigator.pop(context, true),
-              style: TextButton.styleFrom(foregroundColor: AppColors.error),
-              child: const Text('Apagar tudo')),
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancelar'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: TextButton.styleFrom(foregroundColor: AppColors.error),
+            child: const Text('Apagar tudo'),
+          ),
         ],
       ),
     );
@@ -134,7 +160,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
       await prefs.remove(kProfilePhotoKey);
       if (!mounted) return;
       Navigator.of(context).pushAndRemoveUntil(
-        MaterialPageRoute(builder: (_) => const SignupScreen()), (_) => false);
+        MaterialPageRoute(builder: (_) => const SignupScreen()),
+        (_) => false,
+      );
     }
   }
 
@@ -144,13 +172,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
-        title:   const Text('Backup dos dados'),
+        title: const Text('Backup dos dados'),
         content: SingleChildScrollView(
-          child: SelectableText(json,
-              style: const TextStyle(fontSize: 11, fontFamily: 'monospace'))),
+          child: SelectableText(
+            json,
+            style: const TextStyle(fontSize: 11, fontFamily: 'monospace'),
+          ),
+        ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context),
-              child: const Text('Fechar'))],
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Fechar'),
+          ),
+        ],
       ),
     );
   }
@@ -158,7 +192,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   @override
   Widget build(BuildContext context) {
     final profile = widget.profile;
-    
+
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 100),
       children: [
@@ -178,38 +212,48 @@ class _ProfileScreenState extends State<ProfileScreen> {
         Text('Configurações', style: AppTextStyles.sectionLabel),
         const SizedBox(height: 8),
         Card(
-          child: Column(children: [
-            SwitchListTile(
-              title:       const Text('Modo escuro'),
-              subtitle:    Text('Tema escuro do app', style: AppTextStyles.xpLabel),
-              secondary:   Icon(
-                _darkMode ? Icons.dark_mode_rounded : Icons.light_mode_rounded,
-                color: _darkMode ? AppColors.blueAccent : AppColors.streak,
-              ),
-              value:       _darkMode,
-              onChanged:   _toggleDark,
-              activeColor: AppColors.primary,
-            ),
-            const Divider(height: 1, indent: 16, endIndent: 16),
-            ListTile(
-              leading: const Icon(Icons.notifications_outlined),
-              title:   const Text('Notificações'),
-              subtitle: Text(
-                profile?.notificacoesAtivas == true ? 'Ativas' : 'Desativadas',
-                style: AppTextStyles.xpLabel,
-              ),
-              trailing: Switch(
-                value:    profile?.notificacoesAtivas ?? true,
-                onChanged: (v) async {
-                  if (profile == null) return;
-                  await StorageService.instance
-                      .saveProfile(profile.copyWith(notificacoesAtivas: v));
-                  widget.onProfileUpdate?.call();
-                },
+          child: Column(
+            children: [
+              SwitchListTile(
+                title: const Text('Modo escuro'),
+                subtitle: Text(
+                  'Tema escuro do app',
+                  style: AppTextStyles.xpLabel,
+                ),
+                secondary: Icon(
+                  _darkMode
+                      ? Icons.dark_mode_rounded
+                      : Icons.light_mode_rounded,
+                  color: _darkMode ? AppColors.blueAccent : AppColors.streak,
+                ),
+                value: _darkMode,
+                onChanged: _toggleDark,
                 activeColor: AppColors.primary,
               ),
-            ),
-          ]),
+              const Divider(height: 1, indent: 16, endIndent: 16),
+              ListTile(
+                leading: const Icon(Icons.notifications_outlined),
+                title: const Text('Notificações'),
+                subtitle: Text(
+                  profile?.notificacoesAtivas == true
+                      ? 'Ativas'
+                      : 'Desativadas',
+                  style: AppTextStyles.xpLabel,
+                ),
+                trailing: Switch(
+                  value: profile?.notificacoesAtivas ?? true,
+                  onChanged: (v) async {
+                    if (profile == null) return;
+                    await StorageService.instance.saveProfile(
+                      profile.copyWith(notificacoesAtivas: v),
+                    );
+                    widget.onProfileUpdate?.call();
+                  },
+                  activeColor: AppColors.primary,
+                ),
+              ),
+            ],
+          ),
         ),
         const SizedBox(height: 16),
 
@@ -217,26 +261,48 @@ class _ProfileScreenState extends State<ProfileScreen> {
         Text('Dados', style: AppTextStyles.sectionLabel),
         const SizedBox(height: 8),
         Card(
-          child: Column(children: [
-            ListTile(
-              leading: const Icon(Icons.file_download_outlined, color: AppColors.primary),
-              title:    const Text('Exportar backup'),
-              subtitle: Text('JSON com todos os seus dados', style: AppTextStyles.xpLabel),
-              trailing: const Icon(Icons.chevron_right_rounded),
-              onTap:    _exportar,
-            ),
-            const Divider(height: 1, indent: 16, endIndent: 16),
-            ListTile(
-              leading: const Icon(Icons.delete_forever_outlined, color: AppColors.error),
-              title:   const Text('Resetar app', style: TextStyle(color: AppColors.error)),
-              subtitle: Text('Apaga todos os dados', style: AppTextStyles.xpLabel),
-              trailing: const Icon(Icons.chevron_right_rounded),
-              onTap:    _resetApp,
-            ),
-          ]),
+          child: Column(
+            children: [
+              ListTile(
+                leading: const Icon(
+                  Icons.file_download_outlined,
+                  color: AppColors.primary,
+                ),
+                title: const Text('Exportar backup'),
+                subtitle: Text(
+                  'JSON com todos os seus dados',
+                  style: AppTextStyles.xpLabel,
+                ),
+                trailing: const Icon(Icons.chevron_right_rounded),
+                onTap: _exportar,
+              ),
+              const Divider(height: 1, indent: 16, endIndent: 16),
+              ListTile(
+                leading: const Icon(
+                  Icons.delete_forever_outlined,
+                  color: AppColors.error,
+                ),
+                title: const Text(
+                  'Resetar app',
+                  style: TextStyle(color: AppColors.error),
+                ),
+                subtitle: Text(
+                  'Apaga todos os dados',
+                  style: AppTextStyles.xpLabel,
+                ),
+                trailing: const Icon(Icons.chevron_right_rounded),
+                onTap: _resetApp,
+              ),
+            ],
+          ),
         ),
         const SizedBox(height: 20),
-        const Center(child: Text('HabitFlow  ·  Dados locais', style: TextStyle(fontSize: 12, color: AppColors.textSecondary))),
+        const Center(
+          child: Text(
+            'HabitFlow  ·  Dados locais',
+            style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
+          ),
+        ),
       ],
     );
   }
@@ -247,7 +313,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   Widget _buildIdentityHeader(BuildContext context, UserProfile? profile) {
     final theme = profile != null
-        ? AppColors.themeForXp(profile.xpTotal) : AppColors.levelThemes.first;
+        ? AppColors.themeForXp(profile.xpTotal)
+        : AppColors.levelThemes.first;
 
     return Column(
       children: [
@@ -258,35 +325,53 @@ class _ProfileScreenState extends State<ProfileScreen> {
             alignment: Alignment.bottomRight,
             children: [
               CircleAvatar(
-                radius:          54,
+                radius: 54,
                 backgroundColor: theme.surface,
                 backgroundImage: _photoPath != null
-                    ? FileImage(File(_photoPath!)) : null,
+                    ? FileImage(File(_photoPath!))
+                    : null,
                 child: _photoPath == null
                     ? Text(
                         profile?.apelido.isNotEmpty == true
-                            ? profile!.apelido[0].toUpperCase() : '?',
+                            ? profile!.apelido[0].toUpperCase()
+                            : '?',
                         style: TextStyle(
-                            fontSize: 40, fontWeight: FontWeight.w700,
-                            color: theme.primary))
+                          fontSize: 40,
+                          fontWeight: FontWeight.w700,
+                          color: theme.primary,
+                        ),
+                      )
                     : null,
               ),
               Container(
-                width:  32, height: 32,
+                width: 32,
+                height: 32,
                 decoration: BoxDecoration(
-                  color:  AppColors.primary, shape: BoxShape.circle,
+                  color: AppColors.primary,
+                  shape: BoxShape.circle,
                   border: Border.all(
-                      color: Theme.of(context).scaffoldBackgroundColor, width: 3)),
-                child: const Icon(Icons.camera_alt_rounded,
-                    size: 16, color: Colors.white),
+                    color: Theme.of(context).scaffoldBackgroundColor,
+                    width: 3,
+                  ),
+                ),
+                child: const Icon(
+                  Icons.camera_alt_rounded,
+                  size: 16,
+                  color: Colors.white,
+                ),
               ),
             ],
           ),
         ),
         const SizedBox(height: 16),
 
-        Text(profile?.apelido ?? 'Usuário',
-            style: Theme.of(context).textTheme.titleLarge?.copyWith(fontSize: 24, fontWeight: FontWeight.w800)),
+        Text(
+          profile?.apelido ?? 'Usuário',
+          style: Theme.of(context).textTheme.titleLarge?.copyWith(
+            fontSize: 24,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
         Text(profile?.nome ?? '', style: AppTextStyles.greeting),
         const SizedBox(height: 12),
 
@@ -305,14 +390,29 @@ class _ProfileScreenState extends State<ProfileScreen> {
               const SizedBox(width: 6),
               Text(
                 'Nível ${profile?.nivel ?? 1} • ${profile?.nomeDonivel ?? "Broto"}',
-                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: theme.primary),
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  color: theme.primary,
+                ),
               ),
               const SizedBox(width: 10),
-              Container(width: 4, height: 4, decoration: BoxDecoration(color: theme.primary.withAlpha(100), shape: BoxShape.circle)),
+              Container(
+                width: 4,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: theme.primary.withAlpha(100),
+                  shape: BoxShape.circle,
+                ),
+              ),
               const SizedBox(width: 10),
               Text(
                 '${profile?.xpTotal ?? 0} XP',
-                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: AppColors.streak),
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w800,
+                  color: AppColors.streak,
+                ),
               ),
             ],
           ),
@@ -324,28 +424,42 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Widget _buildRankJourney(BuildContext context, UserProfile profile) {
     final maxStreak = _maxStreak;
     final currentFrame = AppColors.frameForDays(maxStreak);
-    
+
     int currentFrameDays = 0;
     int nextFrameDays = 30;
     FrameColors? nextFrame = AppColors.gold;
 
-    if (maxStreak < 30) { 
-      currentFrameDays = 0; nextFrameDays = 30; nextFrame = AppColors.gold; 
-    } else if (maxStreak < 75) { 
-      currentFrameDays = 30; nextFrameDays = 75; nextFrame = AppColors.platinum; 
-    } else if (maxStreak < 150) { 
-      currentFrameDays = 75; nextFrameDays = 150; nextFrame = AppColors.emerald; 
-    } else if (maxStreak < 200) { 
-      currentFrameDays = 150; nextFrameDays = 200; nextFrame = AppColors.diamond; 
-    } else if (maxStreak < 300) { 
-      currentFrameDays = 200; nextFrameDays = 300; nextFrame = AppColors.master; 
-    } else { 
-      currentFrameDays = 300; nextFrameDays = 300; nextFrame = null; 
+    if (maxStreak < 30) {
+      currentFrameDays = 0;
+      nextFrameDays = 30;
+      nextFrame = AppColors.gold;
+    } else if (maxStreak < 75) {
+      currentFrameDays = 30;
+      nextFrameDays = 75;
+      nextFrame = AppColors.platinum;
+    } else if (maxStreak < 150) {
+      currentFrameDays = 75;
+      nextFrameDays = 150;
+      nextFrame = AppColors.emerald;
+    } else if (maxStreak < 200) {
+      currentFrameDays = 150;
+      nextFrameDays = 200;
+      nextFrame = AppColors.diamond;
+    } else if (maxStreak < 300) {
+      currentFrameDays = 200;
+      nextFrameDays = 300;
+      nextFrame = AppColors.master;
+    } else {
+      currentFrameDays = 300;
+      nextFrameDays = 300;
+      nextFrame = null;
     }
 
     double progress = 1.0;
     if (nextFrame != null) {
-       progress = ((maxStreak - currentFrameDays) / (nextFrameDays - currentFrameDays)).clamp(0.0, 1.0);
+      progress =
+          ((maxStreak - currentFrameDays) / (nextFrameDays - currentFrameDays))
+              .clamp(0.0, 1.0);
     }
 
     return Card(
@@ -355,7 +469,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
           children: [
             Row(
               children: [
-                const Icon(Icons.map_rounded, size: 20, color: AppColors.streak),
+                const Icon(
+                  Icons.map_rounded,
+                  size: 20,
+                  color: AppColors.streak,
+                ),
                 const SizedBox(width: 8),
                 Text('Jornada da Patente', style: AppTextStyles.habitName),
               ],
@@ -369,17 +487,31 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   children: [
                     _buildFrameImage(currentFrame.name, size: 70),
                     const SizedBox(height: 8),
-                    Text(currentFrame.name, style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: currentFrame.text)),
+                    Text(
+                      currentFrame.name,
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                        color: currentFrame.text,
+                      ),
+                    ),
                   ],
                 ),
-                
+
                 // Trilha de progresso
                 Expanded(
                   child: Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 16),
                     child: Column(
                       children: [
-                        Text('$maxStreak dias', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: AppColors.textPrimary)),
+                        Text(
+                          '$maxStreak dias',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w800,
+                            color: AppColors.textPrimary,
+                          ),
+                        ),
                         const SizedBox(height: 6),
                         ClipRRect(
                           borderRadius: BorderRadius.circular(10),
@@ -387,17 +519,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             tween: Tween(begin: 0, end: progress),
                             duration: const Duration(seconds: 1),
                             curve: Curves.easeOut,
-                            builder: (context, val, child) => LinearProgressIndicator(
-                              value: val,
-                              minHeight: 8,
-                              backgroundColor: AppColors.surfaceHover,
-                              color: currentFrame.ring,
-                            ),
+                            builder: (context, val, child) =>
+                                LinearProgressIndicator(
+                                  value: val,
+                                  minHeight: 8,
+                                  backgroundColor: AppColors.surfaceHover,
+                                  color: currentFrame.ring,
+                                ),
                           ),
                         ),
                         const SizedBox(height: 6),
                         if (nextFrame != null)
-                          Text('Faltam ${nextFrameDays - maxStreak}', style: AppTextStyles.xpLabel.copyWith(fontSize: 11)),
+                          Text(
+                            'Faltam ${nextFrameDays - maxStreak}',
+                            style: AppTextStyles.xpLabel.copyWith(fontSize: 11),
+                          ),
                       ],
                     ),
                   ),
@@ -407,9 +543,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 if (nextFrame != null)
                   Column(
                     children: [
-                      _buildFrameImage(nextFrame.name, size: 70, isLocked: true),
+                      _buildFrameImage(
+                        nextFrame.name,
+                        size: 70,
+                        isLocked: true,
+                      ),
                       const SizedBox(height: 8),
-                      Text(nextFrame.name, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.textSecondary)),
+                      Text(
+                        nextFrame.name,
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
                     ],
                   )
                 else
@@ -417,9 +564,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     children: [
                       _buildFrameImage('Mestre', size: 70),
                       const SizedBox(height: 8),
-                      const Text('Máximo', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.streak)),
+                      const Text(
+                        'Máximo',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.streak,
+                        ),
+                      ),
                     ],
-                  )
+                  ),
               ],
             ),
           ],
@@ -429,9 +583,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   // Helper para carregar a imagem da moldura de assets em vez do Custom Painter
-  Widget _buildFrameImage(String rawName, {double size = 60, bool isLocked = false}) {
+  Widget _buildFrameImage(
+    String rawName, {
+    double size = 60,
+    bool isLocked = false,
+  }) {
     // Normaliza o nome para minúsculo e sem acentos, ex: "Ouro" -> "ouro_frame.png", "Platina" -> "platina_frame.png"
-    final frameName = rawName.toLowerCase(); 
+    final frameName = rawName.toLowerCase();
     final assetPath = 'assets/frames/${frameName}_frame.png';
 
     Widget image = Image.asset(
@@ -446,7 +604,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
           color: AppColors.surfaceHover,
           shape: BoxShape.circle,
         ),
-        child: const Icon(Icons.image_not_supported, color: Colors.grey, size: 24),
+        child: const Icon(
+          Icons.image_not_supported,
+          color: Colors.grey,
+          size: 24,
+        ),
       ),
     );
 
@@ -455,17 +617,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
       return Stack(
         alignment: Alignment.center,
         children: [
-          Opacity(
-            opacity: 0.35,
-            child: image,
-          ),
+          Opacity(opacity: 0.35, child: image),
           Container(
             padding: const EdgeInsets.all(4),
             decoration: BoxDecoration(
               color: Colors.black.withAlpha(100),
               shape: BoxShape.circle,
             ),
-            child: const Icon(Icons.lock_rounded, color: Colors.white, size: 18),
+            child: const Icon(
+              Icons.lock_rounded,
+              color: Colors.white,
+              size: 18,
+            ),
           ),
         ],
       );
@@ -474,8 +637,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Widget _buildPlayerStats(BuildContext context, UserProfile profile) {
-    int totalDiasAtivos = profile.conquistas[AchievementCategory.geral]?.diasConcluidos.length ?? 0;
-    int maxStreakGeral = profile.conquistas[AchievementCategory.geral]?.melhorStreak ?? 0;
+    int totalDiasAtivos =
+        profile.conquistas[AchievementCategory.geral]?.diasConcluidos.length ??
+        0;
+    int maxStreakGeral =
+        profile.conquistas[AchievementCategory.geral]?.melhorStreak ?? 0;
     int diasPerfeitos = profile.diasPerfeitos.length;
 
     return Column(
@@ -499,7 +665,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 value: diasPerfeitos.toString(),
                 description: 'Dias com todos os hábitos completados',
               ),
-              const Padding(padding: EdgeInsets.symmetric(vertical: 12), child: Divider(height: 1)),
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 12),
+                child: Divider(height: 1),
+              ),
               _StatRow(
                 icon: Icons.local_fire_department_rounded,
                 color: AppColors.streak,
@@ -507,7 +676,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 value: maxStreakGeral.toString(),
                 description: 'Maior número de dias seguidos ativos',
               ),
-              const Padding(padding: EdgeInsets.symmetric(vertical: 12), child: Divider(height: 1)),
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 12),
+                child: Divider(height: 1),
+              ),
               _StatRow(
                 icon: Icons.event_available_rounded,
                 color: AppColors.primary,
@@ -555,8 +727,17 @@ class _StatRow extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(label, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
-              Text(description, style: TextStyle(fontSize: 11, color: AppColors.textSecondary)),
+              Text(
+                label,
+                style: const TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              Text(
+                description,
+                style: TextStyle(fontSize: 11, color: AppColors.textSecondary),
+              ),
             ],
           ),
         ),
