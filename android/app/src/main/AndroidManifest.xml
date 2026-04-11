@@ -3,9 +3,9 @@
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM"/>
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
     <application
-        android:label="flutter_app_habitos"
+        android:label="HabitFlow"
         android:name="${applicationName}"
-        android:icon="@mipmap/ic_launcher">
+        android:icon="@mipmap/icon_habit_flow">
         <activity
             android:name=".MainActivity"
             android:exported="true"

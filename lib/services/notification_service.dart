@@ -46,7 +46,7 @@ class NotificationService {
     // Inicializa timezones
     tz_data.initializeTimeZones();
 
-    const android = AndroidInitializationSettings('@mipmap/ic_launcher');
+    const android = AndroidInitializationSettings('@mipmap/icon_habit_flow');
     const ios     = DarwinInitializationSettings(
       requestAlertPermission: true,
       requestBadgePermission: true,
@@ -142,7 +142,7 @@ class NotificationService {
           channelDescription:     _channelDesc,
           importance:             Importance.high,
           priority:               Priority.high,
-          icon:                   '@mipmap/ic_launcher',
+          icon:                   '@mipmap/icon_habit_flow',
           ticker:                 habit.nome,
           styleInformation: const BigTextStyleInformation(''),
         ),
@@ -188,7 +188,7 @@ class NotificationService {
           _channelName,
           importance: Importance.high,
           priority:   Priority.high,
-          icon:       '@mipmap/ic_launcher',
+          icon:       '@mipmap/icon_habit_flow',
         ),
       ),
     );
