@@ -86,15 +86,35 @@ class XpService {
 
     // Ganhou XP pela subtarefa
     int xp = _xpPorSubtarefa;
+    var perfilAtual = profile;
+
+    // Ao marcar qualquer mini tarefa:
+    perfilAtual = perfilAtual.incrementarTrilha('guerreiro', 1);
 
     // Bônus se completou o hábito agora
     if (habitAtualizado.completoHoje && !eraCompleto) {
       xp += _xpHabitoCompleto;
+      
+      // Ao completar hábito 100%:
+      perfilAtual = perfilAtual.incrementarTrilha('dedicado', 1);
+
+      // Ao fechar todas as subtarefas de um hábito da manhã:
+      if (habitAtualizado.periodo == 'manha') {
+        perfilAtual = perfilAtual.incrementarTrilha('madrugador', 1);
+      }
+
+      // Streak: atualizar 'constante' com o streakAtual do hábito
+      final streakAtual = habitAtualizado.streakAtual;
+      final streakSalvo = perfilAtual.trailProgress['constante'] ?? 0;
+      if (streakAtual > streakSalvo) {
+        perfilAtual = perfilAtual.incrementarTrilha('constante',
+            streakAtual - streakSalvo);
+      }
     }
 
     // Aplica XP e verifica level-up
-    final nivelAntes   = profile.nivel;
-    final novoPerfil   = await _aplicarXp(profile, xp);
+    final nivelAntes   = perfilAtual.nivel;
+    final novoPerfil   = await _aplicarXp(perfilAtual, xp);
     final subiu        = novoPerfil.nivel > nivelAntes;
 
     // Verifica conquistas se hábito completou
@@ -228,6 +248,9 @@ class XpService {
         .atualizarConquista(AchievementCategory.perfeito, novaConq)
         .registrarDiaPerfeito(hoje);
 
+    // Ao registrar dia perfeito:
+    perfil = perfil.incrementarTrilha('perfeccionista', 1);
+
     final novasMolduras = <String>[];
     if (marcos.isNotEmpty) {
       xp += _xpNovaMoldura * marcos.length;
@@ -255,6 +278,15 @@ class XpService {
       novosMarcosDesbloqueados: marcos,
       novasMolduras:           novasMolduras,
     );
+  }
+
+  // ── Ação: criar hábito ────────────────────────────────────
+
+  /// Chame quando o usuário criar um novo hábito
+  Future<XpResult> onHabitCreated(UserProfile profile) async {
+    final perfil = profile.incrementarTrilha('colecionador', 1);
+    await StorageService.instance.saveProfile(perfil);
+    return const XpResult();
   }
 
   // ── Helpers privados ──────────────────────────────────────

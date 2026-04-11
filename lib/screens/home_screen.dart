@@ -108,6 +108,10 @@ class _HomeScreenState extends State<HomeScreen> {
       } catch (e) {
         debugPrint('Erro ao agendar notificação (permissão): $e');
       }
+      if (_profile != null) {
+        final result = await XpService.instance.onHabitCreated(_profile!);
+        if (result.temEvento && mounted) _showXpEvent(result);
+      }
       await _load();
     }
   }

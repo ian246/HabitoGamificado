@@ -23,6 +23,10 @@ class UserProfile {
   /// Datas em que todos os hábitos foram 100% concluídos
   final List<String> diasPerfeitos;
 
+  /// Progresso de cada trilha de conquista.
+  /// Chave = AchievementTrail.id   Valor = progresso atual (int)
+  final Map<String, int> trailProgress;
+
   const UserProfile({
     required this.nome,
     required this.apelido,
@@ -34,6 +38,7 @@ class UserProfile {
     required this.ultimoAcesso,
     this.conquistas = const {},
     this.diasPerfeitos = const [],
+    this.trailProgress = const {},
   });
 
   // ── Factory para novo perfil ──────────────────────────────
@@ -57,6 +62,7 @@ class UserProfile {
       criadoEm: now,
       ultimoAcesso: now,
       conquistas: conquistas,
+      trailProgress: const {},
     );
   }
 
@@ -119,6 +125,7 @@ class UserProfile {
     DateTime? ultimoAcesso,
     Map<AchievementCategory, Achievement>? conquistas,
     List<String>? diasPerfeitos,
+    Map<String, int>? trailProgress,
   }) => UserProfile(
     nome: nome ?? this.nome,
     apelido: apelido ?? this.apelido,
@@ -130,7 +137,15 @@ class UserProfile {
     ultimoAcesso: ultimoAcesso ?? this.ultimoAcesso,
     conquistas: conquistas ?? this.conquistas,
     diasPerfeitos: diasPerfeitos ?? this.diasPerfeitos,
+    trailProgress: trailProgress ?? this.trailProgress,
   );
+
+  /// Incrementa o progresso de uma trilha de conquistas
+  UserProfile incrementarTrilha(String trailId, int quantidade) {
+    final novo = Map<String, int>.from(trailProgress);
+    novo[trailId] = (novo[trailId] ?? 0) + quantidade;
+    return copyWith(trailProgress: novo);
+  }
 
   /// Adiciona XP e retorna o perfil atualizado
   UserProfile adicionarXp(int quantidade) =>
@@ -164,6 +179,7 @@ class UserProfile {
     'ultimoAcesso': ultimoAcesso.toIso8601String(),
     'conquistas': conquistas.map((k, v) => MapEntry(k.valor, v.toJson())),
     'diasPerfeitos': diasPerfeitos,
+    'trailProgress': trailProgress,
   };
 
   factory UserProfile.fromJson(Map<String, dynamic> json) {
@@ -187,6 +203,7 @@ class UserProfile {
       ultimoAcesso: DateTime.parse(json['ultimoAcesso'] as String),
       conquistas: conquistas,
       diasPerfeitos: List<String>.from(json['diasPerfeitos'] as List? ?? []),
+      trailProgress: Map<String, int>.from(json['trailProgress'] as Map? ?? {}),
     );
   }
 

@@ -14,13 +14,13 @@ class SignupScreen extends StatefulWidget {
 }
 
 class _SignupScreenState extends State<SignupScreen> {
-  final _formKey      = GlobalKey<FormState>();
-  final _nomeCtrl     = TextEditingController();
-  final _apelidoCtrl  = TextEditingController();
-  final _pinCtrl      = TextEditingController();
-  final _pinConfCtrl  = TextEditingController();
-  bool  _obscurePin   = true;
-  bool  _loading      = false;
+  final _formKey = GlobalKey<FormState>();
+  final _nomeCtrl = TextEditingController();
+  final _apelidoCtrl = TextEditingController();
+  final _pinCtrl = TextEditingController();
+  final _pinConfCtrl = TextEditingController();
+  bool _obscurePin = true;
+  bool _loading = false;
 
   @override
   void dispose() {
@@ -36,9 +36,9 @@ class _SignupScreenState extends State<SignupScreen> {
     setState(() => _loading = true);
 
     final profile = UserProfile.create(
-      nome:     _nomeCtrl.text.trim(),
-      apelido:  _apelidoCtrl.text.trim(),
-      pinHash:  _pinCtrl.text, // v1: texto simples. v2: use crypto SHA-256
+      nome: _nomeCtrl.text.trim(),
+      apelido: _apelidoCtrl.text.trim(),
+      pinHash: _pinCtrl.text, // v1: texto simples. v2: use crypto SHA-256
     );
 
     await StorageService.instance.saveProfile(profile);
@@ -47,15 +47,13 @@ class _SignupScreenState extends State<SignupScreen> {
     await NotificationService.instance.requestPermission();
 
     if (!mounted) return;
-    Navigator.of(context).pushReplacement(
-      MaterialPageRoute(builder: (_) => const HomeScreen()),
-    );
+    Navigator.of(
+      context,
+    ).pushReplacement(MaterialPageRoute(builder: (_) => const HomeScreen()));
   }
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-
     return Scaffold(
       body: SafeArea(
         child: SingleChildScrollView(
@@ -91,8 +89,9 @@ class _SignupScreenState extends State<SignupScreen> {
                     hintText: 'Ex: João Silva',
                     prefixIcon: Icon(Icons.person_outline_rounded),
                   ),
-                  validator: (v) =>
-                      (v == null || v.trim().isEmpty) ? 'Informe seu nome' : null,
+                  validator: (v) => (v == null || v.trim().isEmpty)
+                      ? 'Informe seu nome'
+                      : null,
                 ),
                 const SizedBox(height: 16),
 
@@ -105,26 +104,30 @@ class _SignupScreenState extends State<SignupScreen> {
                     hintText: 'Ex: João',
                     prefixIcon: Icon(Icons.badge_outlined),
                   ),
-                  validator: (v) =>
-                      (v == null || v.trim().isEmpty) ? 'Informe um apelido' : null,
+                  validator: (v) => (v == null || v.trim().isEmpty)
+                      ? 'Informe um apelido'
+                      : null,
                 ),
                 const SizedBox(height: 16),
 
                 _label('PIN de 4 dígitos'),
                 const SizedBox(height: 6),
                 TextFormField(
-                  controller:  _pinCtrl,
+                  controller: _pinCtrl,
                   keyboardType: TextInputType.number,
                   obscureText: _obscurePin,
-                  maxLength:   4,
+                  maxLength: 4,
                   decoration: InputDecoration(
                     hintText: '••••',
                     prefixIcon: const Icon(Icons.lock_outline_rounded),
                     suffixIcon: IconButton(
-                      icon: Icon(_obscurePin
-                          ? Icons.visibility_off_outlined
-                          : Icons.visibility_outlined),
-                      onPressed: () => setState(() => _obscurePin = !_obscurePin),
+                      icon: Icon(
+                        _obscurePin
+                            ? Icons.visibility_off_outlined
+                            : Icons.visibility_outlined,
+                      ),
+                      onPressed: () =>
+                          setState(() => _obscurePin = !_obscurePin),
                     ),
                     counterText: '',
                   ),
@@ -139,10 +142,10 @@ class _SignupScreenState extends State<SignupScreen> {
                 _label('Confirmar PIN'),
                 const SizedBox(height: 6),
                 TextFormField(
-                  controller:   _pinConfCtrl,
+                  controller: _pinConfCtrl,
                   keyboardType: TextInputType.number,
-                  obscureText:  true,
-                  maxLength:    4,
+                  obscureText: true,
+                  maxLength: 4,
                   decoration: const InputDecoration(
                     hintText: '••••',
                     prefixIcon: Icon(Icons.lock_outline_rounded),
@@ -164,12 +167,21 @@ class _SignupScreenState extends State<SignupScreen> {
                     style: FilledButton.styleFrom(
                       backgroundColor: AppColors.primary,
                       shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(14)),
+                        borderRadius: BorderRadius.circular(14),
+                      ),
                     ),
                     child: _loading
-                        ? const CircularProgressIndicator(color: Colors.white, strokeWidth: 2)
-                        : const Text('Criar meu perfil',
-                            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+                        ? const CircularProgressIndicator(
+                            color: Colors.white,
+                            strokeWidth: 2,
+                          )
+                        : const Text(
+                            'Criar meu perfil',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
                   ),
                 ),
                 const SizedBox(height: 24),
@@ -190,8 +202,5 @@ class _SignupScreenState extends State<SignupScreen> {
     );
   }
 
-  Widget _label(String text) => Text(
-        text,
-        style: AppTextStyles.sectionLabel,
-      );
+  Widget _label(String text) => Text(text, style: AppTextStyles.sectionLabel);
 }

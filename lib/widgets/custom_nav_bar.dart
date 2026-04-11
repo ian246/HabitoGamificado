@@ -11,7 +11,7 @@ import '../core/theme/app_colors.dart';
 ///   )
 /// ─────────────────────────────────────────────────────────────
 class HabitNavBar extends StatelessWidget {
-  final int          currentIndex;
+  final int currentIndex;
   final ValueChanged<int> onTap;
 
   const HabitNavBar({
@@ -21,16 +21,32 @@ class HabitNavBar extends StatelessWidget {
   });
 
   static const _items = [
-    _NavItem(icon: Icons.home_outlined,         activeIcon: Icons.home_rounded,          label: 'Início'),
-    _NavItem(icon: Icons.bar_chart_outlined,     activeIcon: Icons.bar_chart_rounded,     label: 'Progresso'),
-    _NavItem(icon: Icons.emoji_events_outlined,  activeIcon: Icons.emoji_events_rounded,  label: 'Conquistas'),
-    _NavItem(icon: Icons.person_outline_rounded, activeIcon: Icons.person_rounded,        label: 'Perfil'),
+    _NavItem(
+      icon: Icons.home_outlined,
+      activeIcon: Icons.home_rounded,
+      label: 'Início',
+    ),
+    _NavItem(
+      icon: Icons.bar_chart_outlined,
+      activeIcon: Icons.bar_chart_rounded,
+      label: 'Progresso',
+    ),
+    _NavItem(
+      icon: Icons.emoji_events_outlined,
+      activeIcon: Icons.emoji_events_rounded,
+      label: 'Conquistas',
+    ),
+    _NavItem(
+      icon: Icons.person_outline_rounded,
+      activeIcon: Icons.person_rounded,
+      label: 'Perfil',
+    ),
   ];
 
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final bg     = isDark ? const Color(0xFF1E2E27) : Colors.white;
+    final bg = isDark ? const Color(0xFF1E2E27) : Colors.white;
     final border = isDark ? const Color(0xFF2E5040) : const Color(0xFFE3F0EA);
 
     return Container(
@@ -53,10 +69,10 @@ class HabitNavBar extends StatelessWidget {
             children: List.generate(_items.length, (i) {
               return Expanded(
                 child: _NavButton(
-                  item:     _items[i],
+                  item: _items[i],
                   selected: currentIndex == i,
-                  onTap:    () => onTap(i),
-                  isDark:   isDark,
+                  onTap: () => onTap(i),
+                  isDark: isDark,
                 ),
               );
             }),
@@ -69,9 +85,9 @@ class HabitNavBar extends StatelessWidget {
 
 class _NavButton extends StatefulWidget {
   final _NavItem item;
-  final bool     selected;
+  final bool selected;
   final VoidCallback onTap;
-  final bool     isDark;
+  final bool isDark;
 
   const _NavButton({
     required this.item,
@@ -87,20 +103,24 @@ class _NavButton extends StatefulWidget {
 class _NavButtonState extends State<_NavButton>
     with SingleTickerProviderStateMixin {
   late AnimationController _ctrl;
-  late Animation<double>   _scale;
-  late Animation<double>   _indicator;
+  late Animation<double> _scale;
+  late Animation<double> _indicator;
 
   @override
   void initState() {
     super.initState();
     _ctrl = AnimationController(
-      vsync:    this,
+      vsync: this,
       duration: const Duration(milliseconds: 260),
     );
-    _scale = Tween<double>(begin: 1.0, end: 0.88)
-        .animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeInOut));
-    _indicator = Tween<double>(begin: 0.0, end: 1.0)
-        .animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeOutBack));
+    _scale = Tween<double>(
+      begin: 1.0,
+      end: 0.88,
+    ).animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeInOut));
+    _indicator = Tween<double>(
+      begin: 0.0,
+      end: 1.0,
+    ).animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeOutBack));
 
     if (widget.selected) _ctrl.forward();
   }
@@ -121,7 +141,7 @@ class _NavButtonState extends State<_NavButton>
 
   @override
   Widget build(BuildContext context) {
-    final activeColor   = AppColors.primary;
+    final activeColor = AppColors.primary;
     final inactiveColor = widget.isDark
         ? const Color(0xFF6B8880)
         : const Color(0xFF9BBAB2);
@@ -137,11 +157,11 @@ class _NavButtonState extends State<_NavButton>
             // Pill indicator
             AnimatedContainer(
               duration: const Duration(milliseconds: 260),
-              curve:    Curves.easeOutBack,
-              width:    widget.selected ? 48 : 0,
-              height:   4,
+              curve: Curves.easeOutBack,
+              width: widget.selected ? 48 : 0,
+              height: 4,
               decoration: BoxDecoration(
-                color:        activeColor,
+                color: activeColor,
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
@@ -152,7 +172,7 @@ class _NavButtonState extends State<_NavButton>
               scale: _scale.value,
               child: Icon(
                 widget.selected ? widget.item.activeIcon : widget.item.icon,
-                size:  widget.selected ? 24 : 22,
+                size: widget.selected ? 24 : 22,
                 color: widget.selected ? activeColor : inactiveColor,
               ),
             ),
@@ -162,9 +182,9 @@ class _NavButtonState extends State<_NavButton>
             AnimatedDefaultTextStyle(
               duration: const Duration(milliseconds: 200),
               style: TextStyle(
-                fontSize:   widget.selected ? 10.5 : 10,
+                fontSize: widget.selected ? 10.5 : 10,
                 fontWeight: widget.selected ? FontWeight.w700 : FontWeight.w400,
-                color:      widget.selected ? activeColor : inactiveColor,
+                color: widget.selected ? activeColor : inactiveColor,
                 letterSpacing: widget.selected ? 0.2 : 0,
               ),
               child: Text(widget.item.label),
@@ -179,6 +199,10 @@ class _NavButtonState extends State<_NavButton>
 class _NavItem {
   final IconData icon;
   final IconData activeIcon;
-  final String   label;
-  const _NavItem({required this.icon, required this.activeIcon, required this.label});
+  final String label;
+  const _NavItem({
+    required this.icon,
+    required this.activeIcon,
+    required this.label,
+  });
 }

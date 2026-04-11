@@ -11,15 +11,15 @@ import '../models/user_profile.dart';
 /// ─────────────────────────────────────────────────────────────
 class RankBadge extends StatelessWidget {
   final UserProfile profile;
-  final double      size;
-  final bool        showLabel;
-  final bool        showRankName;
+  final double size;
+  final bool showLabel;
+  final bool showRankName;
 
   const RankBadge({
     super.key,
     required this.profile,
-    this.size         = 56,
-    this.showLabel    = true,
+    this.size = 56,
+    this.showLabel = true,
     this.showRankName = true,
   });
 
@@ -31,24 +31,22 @@ class RankBadge extends StatelessWidget {
         .fold(0, (a, b) => a > b ? a : b);
   }
 
-  String get _rankName => AppColors.frameForDays(_maxStreak).name;
-
   @override
   Widget build(BuildContext context) {
-    final days   = _maxStreak;
-    final frame  = AppColors.frameForDays(days);
-    final theme  = AppColors.themeForXp(profile.xpTotal);
+    final days = _maxStreak;
+    final frame = AppColors.frameForDays(days);
+    final theme = AppColors.themeForXp(profile.xpTotal);
 
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
         // Avatar com anel da moldura
         AchievementFrame(
-          days:    days,
-          size:    size,
+          days: days,
+          size: size,
           animate: days > 0,
           child: CircleAvatar(
-            radius:          size * 0.34,
+            radius: size * 0.34,
             backgroundColor: theme.surface,
             backgroundImage: _hasPhoto ? FileImage(_photoFile) : null,
             child: _hasPhoto
@@ -58,9 +56,9 @@ class RankBadge extends StatelessWidget {
                         ? profile.apelido[0].toUpperCase()
                         : '?',
                     style: TextStyle(
-                      fontSize:   size * 0.24,
+                      fontSize: size * 0.24,
                       fontWeight: FontWeight.w700,
-                      color:      theme.primary,
+                      color: theme.primary,
                     ),
                   ),
           ),
@@ -70,31 +68,37 @@ class RankBadge extends StatelessWidget {
           const SizedBox(width: 10),
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize:       MainAxisSize.min,
+            mainAxisSize: MainAxisSize.min,
             children: [
               Text(
                 'Nível ${profile.nivel} — ${profile.nomeDonivel}',
                 style: TextStyle(
-                  fontSize:   13,
+                  fontSize: 13,
                   fontWeight: FontWeight.w700,
-                  color:      theme.primary,
+                  color: theme.primary,
                 ),
               ),
               const SizedBox(height: 2),
               if (showRankName && days > 0)
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 2,
+                  ),
                   decoration: BoxDecoration(
-                    color:        frame.ring.withAlpha(25),
+                    color: frame.ring.withAlpha(25),
                     borderRadius: BorderRadius.circular(12),
-                    border:       Border.all(color: frame.ring.withAlpha(80), width: 0.5),
+                    border: Border.all(
+                      color: frame.ring.withAlpha(80),
+                      width: 0.5,
+                    ),
                   ),
                   child: Text(
                     '🏅 ${frame.name}',
                     style: TextStyle(
-                      fontSize:   10,
+                      fontSize: 10,
                       fontWeight: FontWeight.w600,
-                      color:      frame.text,
+                      color: frame.text,
                     ),
                   ),
                 )
@@ -103,7 +107,7 @@ class RankBadge extends StatelessWidget {
                   'Sem patente ainda',
                   style: TextStyle(
                     fontSize: 10,
-                    color:    AppColors.textSecondary,
+                    color: AppColors.textSecondary,
                   ),
                 ),
             ],
@@ -121,13 +125,9 @@ class RankBadge extends StatelessWidget {
 /// Versão compacta apenas do anel + inicial — para usar no AppBar
 class RankAvatarOnly extends StatelessWidget {
   final UserProfile profile;
-  final double      size;
+  final double size;
 
-  const RankAvatarOnly({
-    super.key,
-    required this.profile,
-    this.size = 40,
-  });
+  const RankAvatarOnly({super.key, required this.profile, this.size = 40});
 
   int get _maxStreak {
     if (profile.conquistas.isEmpty) return 0;
@@ -140,20 +140,18 @@ class RankAvatarOnly extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = AppColors.themeForXp(profile.xpTotal);
     return AchievementFrame(
-      days:    _maxStreak,
-      size:    size,
+      days: _maxStreak,
+      size: size,
       animate: _maxStreak > 0,
       child: CircleAvatar(
-        radius:          size * 0.34,
+        radius: size * 0.34,
         backgroundColor: theme.surface,
         child: Text(
-          profile.apelido.isNotEmpty
-              ? profile.apelido[0].toUpperCase()
-              : '?',
+          profile.apelido.isNotEmpty ? profile.apelido[0].toUpperCase() : '?',
           style: TextStyle(
-            fontSize:   size * 0.24,
+            fontSize: size * 0.24,
             fontWeight: FontWeight.w700,
-            color:      theme.primary,
+            color: theme.primary,
           ),
         ),
       ),
