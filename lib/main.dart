@@ -38,7 +38,7 @@ class HabitFlowApp extends StatefulWidget {
 }
 
 class HabitFlowAppState extends State<HabitFlowApp> {
-  ThemeMode _themeMode = ThemeMode.system;
+  ThemeMode _themeMode = ThemeMode.dark;
 
   @override
   void initState() {
