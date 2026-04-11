@@ -27,30 +27,30 @@ class AchievementsScreen extends StatelessWidget {
     final allTrails = AchievementTrails.all;
 
     // 1. Concluídas (têm ao menos um tier) → da patente maior para menor
-    final completed = allTrails
-        .where((t) => t.currentTier(_progress(t.id)) != null)
-        .toList()
-      ..sort((a, b) {
-        final tierA = a.currentTier(_progress(a.id))!.index2;
-        final tierB = b.currentTier(_progress(b.id))!.index2;
-        return tierB.compareTo(tierA); // decrescente
-      });
+    final completed =
+        allTrails.where((t) => t.currentTier(_progress(t.id)) != null).toList()
+          ..sort((a, b) {
+            final tierA = a.currentTier(_progress(a.id))!.index2;
+            final tierB = b.currentTier(_progress(b.id))!.index2;
+            return tierB.compareTo(tierA); // decrescente
+          });
 
     // 2. Em andamento (sem tier ainda, mas com algum progresso) → mais próxima de concluir primeiro
-    final inProgress = allTrails
-        .where((t) =>
-            t.currentTier(_progress(t.id)) == null && _progress(t.id) > 0)
-        .toList()
-      ..sort((a, b) {
-        final pctA = a.progressToNext(_progress(a.id));
-        final pctB = b.progressToNext(_progress(b.id));
-        return pctB.compareTo(pctA); // decrescente: mais próxima primeiro
-      });
+    final inProgress =
+        allTrails
+            .where(
+              (t) =>
+                  t.currentTier(_progress(t.id)) == null && _progress(t.id) > 0,
+            )
+            .toList()
+          ..sort((a, b) {
+            final pctA = a.progressToNext(_progress(a.id));
+            final pctB = b.progressToNext(_progress(b.id));
+            return pctB.compareTo(pctA); // decrescente: mais próxima primeiro
+          });
 
     // 3. Não iniciadas (progresso == 0)
-    final notStarted = allTrails
-        .where((t) => _progress(t.id) == 0)
-        .toList();
+    final notStarted = allTrails.where((t) => _progress(t.id) == 0).toList();
 
     final trails = [...completed, ...inProgress, ...notStarted];
 
@@ -128,15 +128,10 @@ class _HeroSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final color = tier != null ? Color(tier!.colorValue) : AppColors.textHint;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    // Fundo sempre escuro, independente do tema
-    final bgColor = isDark
-        ? const Color(0xFF0E0E16)
-        : const Color(0xFF1A1A2E);
 
     return Container(
       padding: const EdgeInsets.fromLTRB(20, 30, 20, 30),
-      color: bgColor,
+      color: Colors.transparent,
       child: Column(
         children: [
           // Frame Central com Glow
@@ -212,7 +207,9 @@ class _TrailCardRefined extends StatelessWidget {
       child: Container(
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(20),
-          color: Theme.of(context).cardTheme.color ?? Theme.of(context).colorScheme.surface,
+          color:
+              Theme.of(context).cardTheme.color ??
+              Theme.of(context).colorScheme.surface,
           border: Border.all(
             color: tier != null
                 ? color.withOpacity(0.35)
@@ -242,7 +239,10 @@ class _TrailCardRefined extends StatelessWidget {
               if (currentLevel != null) ...[
                 const SizedBox(height: 4),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 2,
+                  ),
                   decoration: BoxDecoration(
                     color: color.withOpacity(0.15),
                     borderRadius: BorderRadius.circular(20),
@@ -335,8 +335,6 @@ class _TrailDetailSheet extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final currentTier = trail.currentTier(progress);
-    final nextLevel = trail.nextLevel(progress);
-    final isMaxed = trail.isMaxed(progress);
 
     return DraggableScrollableSheet(
       initialChildSize: 0.75,

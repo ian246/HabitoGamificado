@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import '../core/theme/app_colors.dart';
 import '../core/theme/app_text_styles.dart';
-import '../models/achievement_trail.dart';
 import '../models/habit.dart';
 import '../models/user_profile.dart';
 import '../services/storage_service.dart';
@@ -230,8 +229,6 @@ class _HomeScreenState extends State<HomeScreen> {
 
   PreferredSizeWidget _buildAppBar() {
     final titles = ['HabitFlow', 'Progresso', 'Conquistas', 'Perfil'];
-    final activeTitle = _profile?.activeTitle;
-    final hasTitle = _currentIndex == 0 && _profile != null && activeTitle != null;
 
     return AppBar(
       title: _currentIndex == 0 && _profile != null
@@ -244,69 +241,13 @@ class _HomeScreenState extends State<HomeScreen> {
                   style: AppTextStyles.username,
                 ),
                 const SizedBox(height: 8),
-                XpHeader(profile: _profile!),
-                if (hasTitle) ...[
-                  const SizedBox(height: 6),
-                  _TitleBadge(activeTitle!),
-                ],
+                XpHeader(profile: _profile!, onRefresh: _load),
               ],
             )
           : Text(titles[_currentIndex]),
       toolbarHeight: _currentIndex == 0 && _profile != null
-          ? (hasTitle ? 160 : 140)
+          ? 180 // Maior espaço para nova UI do XpHeader
           : kToolbarHeight,
-      actions: [
-        if (_currentIndex == 0)
-          IconButton(
-            icon: const Icon(Icons.refresh_rounded),
-            onPressed: _load,
-            tooltip: 'Atualizar',
-          ),
-      ],
-    );
-  }
-}
-
-/// Tag compacta que exibe o título ativo do usuário.
-class _TitleBadge extends StatelessWidget {
-  final ({AchievementTrail trail, TrailLevel level}) activeTitle;
-  const _TitleBadge(this.activeTitle);
-
-  @override
-  Widget build(BuildContext context) {
-    final color = Color(activeTitle.level.tier.colorValue);
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
-          decoration: BoxDecoration(
-            color: color.withOpacity(0.15),
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: color.withOpacity(0.5), width: 1),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(activeTitle.trail.emoji, style: const TextStyle(fontSize: 11)),
-              const SizedBox(width: 4),
-              ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 180),
-                child: Text(
-                  activeTitle.level.title,
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w700,
-                    color: color,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
     );
   }
 }
