@@ -1,17 +1,25 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:image_picker/image_picker.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_app_habitos/main.dart';
 import '../core/theme/app_colors.dart';
 import '../core/theme/app_text_styles.dart';
-import '../models/user_profile.dart';
-import '../services/storage_service.dart';
-import 'home_screen.dart';
-import 'signup_screen.dart';
+import '../services/auth_service.dart';
 
 /// ─────────────────────────────────────────────────────────────
-/// Chave SharedPreferences para o caminho da foto de perfil
+/// LoginScreen v2 — autenticação via Google
+///
+/// O que mudou:
+///   - PIN removido (autenticação é feita pelo Google)
+///   - Foto e nome vêm do UserProfile carregado pelo AuthService
+///   - Cancelamento do Google é silencioso (sem snackbar de erro)
+///   - StreamBuilder no main.dart cuida da navegação — sem Navigator.push aqui
+///
+/// O que foi mantido:
+///   - Visual da tela (avatar centralizado, apelido, nível)
+///   - Botão "Redefinir app" no rodapé
+///   - AppColors e AppTextStyles
 /// ─────────────────────────────────────────────────────────────
+
+// Mantida para que profile_screen.dart continue importando sem quebrar
 const kProfilePhotoKey = 'profile_photo_path';
 
 class LoginScreen extends StatefulWidget {
@@ -21,156 +29,66 @@ class LoginScreen extends StatefulWidget {
   State<LoginScreen> createState() => _LoginScreenState();
 }
 
-class _LoginScreenState extends State<LoginScreen>
-    with SingleTickerProviderStateMixin {
-  final _pinCtrl  = TextEditingController();
-  final _picker   = ImagePicker();
+class _LoginScreenState extends State<LoginScreen> {
+  bool _isLoading = false;
 
-  UserProfile? _profile;
-  String?      _photoPath;
-  bool         _obscure = true;
-  String?      _erro;
+  Future<void> _handleGoogleLogin() async {
+    setState(() => _isLoading = true);
 
-  late AnimationController _shakeCtrl;
-  late Animation<double>   _shake;
+    final result = await AuthService.instance.signInWithGoogle();
 
-  @override
-  void initState() {
-    super.initState();
-    _profile = StorageService.instance.loadProfile();
-    _loadPhoto();
+    if (!mounted) return;
+    setState(() => _isLoading = false);
 
-    _shakeCtrl = AnimationController(
-      vsync:    this,
-      duration: const Duration(milliseconds: 420),
-    );
-    _shake = Tween<double>(begin: 0, end: 1).animate(
-      CurvedAnimation(parent: _shakeCtrl, curve: _ShakeCurve()),
-    );
-  }
+    switch (result.status) {
+      case AuthResultStatus.success:
+        // StreamBuilder no main.dart detecta o login e navega para HomeScreen.
+        // Não precisa de Navigator aqui.
+        break;
 
-  Future<void> _loadPhoto() async {
-    final prefs = await SharedPreferences.getInstance();
-    final path  = prefs.getString(kProfilePhotoKey);
-    if (path != null && File(path).existsSync()) {
-      setState(() => _photoPath = path);
+      case AuthResultStatus.cancelled:
+        // Usuário fechou o seletor de conta — silencioso
+        break;
+
+      case AuthResultStatus.networkError:
+      case AuthResultStatus.unknownError:
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(result.errorMessage ?? 'Tente novamente.'),
+            backgroundColor: AppColors.error,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
     }
   }
 
-  Future<void> _pickPhoto() async {
-    final source = await showModalBottomSheet<ImageSource>(
-      context: context,
-      shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
-      builder: (_) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const SizedBox(height: 8),
-            Container(
-                width: 40, height: 4,
-                decoration: BoxDecoration(
-                    color: AppColors.surfaceHover,
-                    borderRadius: BorderRadius.circular(2))),
-            const SizedBox(height: 16),
-            ListTile(
-              leading: const Icon(Icons.camera_alt_outlined,
-                  color: AppColors.primary),
-              title:   const Text('Câmera'),
-              onTap:   () => Navigator.pop(context, ImageSource.camera),
-            ),
-            ListTile(
-              leading: const Icon(Icons.photo_library_outlined,
-                  color: AppColors.primary),
-              title:   const Text('Galeria'),
-              onTap:   () => Navigator.pop(context, ImageSource.gallery),
-            ),
-            if (_photoPath != null)
-              ListTile(
-                leading: const Icon(Icons.delete_outline_rounded,
-                    color: AppColors.error),
-                title: const Text('Remover foto'),
-                onTap: () async {
-                  final prefs = await SharedPreferences.getInstance();
-                  await prefs.remove(kProfilePhotoKey);
-                  setState(() => _photoPath = null);
-                  if (!mounted) return;
-                  Navigator.pop(context);
-                },
-              ),
-            const SizedBox(height: 16),
-          ],
-        ),
-      ),
-    );
-
-    if (source == null || !mounted) return;
-
-    final picked = await _picker.pickImage(
-      source:    source,
-      maxWidth:  400,
-      maxHeight: 400,
-      imageQuality: 85,
-    );
-    if (picked == null) return;
-
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(kProfilePhotoKey, picked.path);
-    setState(() => _photoPath = picked.path);
-  }
-
-  @override
-  void dispose() {
-    _pinCtrl.dispose();
-    _shakeCtrl.dispose();
-    super.dispose();
-  }
-
-  void _entrar() {
-    if (_profile == null) return;
-    if (_pinCtrl.text == _profile!.pinHash) {
-      StorageService.instance.saveProfile(_profile!.atualizarAcesso());
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => const HomeScreen()),
-      );
-    } else {
-      setState(() => _erro = 'PIN incorreto. Tente novamente.');
-      _pinCtrl.clear();
-      _shakeCtrl.forward(from: 0);
-    }
-  }
-
-  void _resetar() => showDialog(
+  void _mostrarResetDialog() => showDialog(
     context: context,
     builder: (_) => AlertDialog(
-      title:   const Text('Redefinir app?'),
-      content: const Text('Apagará todos os hábitos e conquistas.'),
+      title: const Text('Redefinir app?'),
+      content: const Text('Apagará todos os hábitos e conquistas locais.'),
       actions: [
         TextButton(
-            onPressed: () => Navigator.pop(context),
-            child:     const Text('Cancelar')),
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancelar'),
+        ),
         TextButton(
-            onPressed: () async {
-              await StorageService.instance.clearAll();
-              final prefs = await SharedPreferences.getInstance();
-              await prefs.remove(kProfilePhotoKey);
-              if (!mounted) return;
-              Navigator.of(context).pushAndRemoveUntil(
-                MaterialPageRoute(builder: (_) => const SignupScreen()),
-                (_) => false,
-              );
-            },
-            style: TextButton.styleFrom(foregroundColor: AppColors.error),
-            child: const Text('Apagar tudo')),
+          onPressed: () async {
+            await AuthService.instance.signOut();
+            if (!mounted) return;
+            Navigator.pop(context);
+            // StreamBuilder detecta signOut e volta para LoginScreen
+          },
+          style: TextButton.styleFrom(foregroundColor: AppColors.error),
+          child: const Text('Sair da conta'),
+        ),
       ],
     ),
   );
 
   @override
   Widget build(BuildContext context) {
-    if (_profile == null) return const SignupScreen();
-    final theme = AppColors.themeForXp(_profile!.xpTotal);
-
     return Scaffold(
       body: SafeArea(
         child: Padding(
@@ -179,136 +97,51 @@ class _LoginScreenState extends State<LoginScreen>
             children: [
               const Spacer(flex: 2),
 
-              // ── Avatar com botão de foto ──────────────
-              GestureDetector(
-                onTap: _pickPhoto,
-                child: Stack(
-                  alignment: Alignment.bottomRight,
-                  children: [
-                    CircleAvatar(
-                      radius:          52,
-                      backgroundColor: theme.surface,
-                      backgroundImage: _photoPath != null
-                          ? FileImage(File(_photoPath!))
-                          : null,
-                      child: _photoPath == null
-                          ? Text(
-                              _profile!.apelido.isNotEmpty
-                                  ? _profile!.apelido[0].toUpperCase()
-                                  : '?',
-                              style: TextStyle(
-                                fontSize:   38,
-                                fontWeight: FontWeight.w700,
-                                color:      theme.primary,
-                              ),
-                            )
-                          : null,
-                    ),
-                    Container(
-                      width:  30,
-                      height: 30,
-                      decoration: BoxDecoration(
-                        color:  AppColors.primary,
-                        shape:  BoxShape.circle,
-                        border: Border.all(
-                            color: Theme.of(context).scaffoldBackgroundColor,
-                            width: 2),
-                      ),
-                      child: const Icon(Icons.camera_alt_rounded,
-                          size: 15, color: Colors.white),
-                    ),
-                  ],
+              // ── Logo / Headline ───────────────────────────────────
+              Text(
+                'HabitFlow',
+                style: Theme.of(context).textTheme.displayMedium?.copyWith(
+                  fontWeight: FontWeight.w900,
+                  color: AppColors.primary,
                 ),
-              ),
-              const SizedBox(height: 6),
-              Text(
-                'Toque para alterar foto',
-                style: AppTextStyles.xpLabel,
-              ),
-              const SizedBox(height: 20),
-
-              // ── Nome e nível ──────────────────────────
-              Text(
-                'Bem-vindo de volta,',
-                style: AppTextStyles.greeting,
-              ),
-              const SizedBox(height: 4),
-              Text(
-                _profile!.apelido,
-                style: Theme.of(context).textTheme.displayMedium,
               ),
               const SizedBox(height: 8),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 5),
-                decoration: BoxDecoration(
-                  color:        AppColors.surfaceCard,
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Text(
-                  'Nível ${_profile!.nivel} — ${_profile!.nomeDonivel}',
-                  style: AppTextStyles.levelBadge,
-                ),
+              Text(
+                'Transforme disciplina em evolução.',
+                style: AppTextStyles.greeting,
+                textAlign: TextAlign.center,
               ),
 
-              const Spacer(flex: 2),
+              const Spacer(flex: 3),
 
-              // ── Campo de PIN com shake ─────────────────
-              Text('Digite seu PIN', style: AppTextStyles.sectionLabel),
-              const SizedBox(height: 10),
-              AnimatedBuilder(
-                animation: _shake,
-                builder: (_, child) => Transform.translate(
-                  offset: Offset(_shake.value * 8, 0),
-                  child: child,
-                ),
-                child: TextFormField(
-                  controller:   _pinCtrl,
-                  keyboardType: TextInputType.number,
-                  obscureText:  _obscure,
-                  maxLength:    4,
-                  textAlign:    TextAlign.center,
-                  style: const TextStyle(
-                      fontSize: 26, letterSpacing: 14, fontWeight: FontWeight.w700),
-                  decoration: InputDecoration(
-                    counterText: '',
-                    hintText:    '••••',
-                    errorText:   _erro,
-                    suffixIcon:  IconButton(
-                      icon: Icon(_obscure
-                          ? Icons.visibility_off_outlined
-                          : Icons.visibility_outlined),
-                      onPressed: () => setState(() => _obscure = !_obscure),
-                    ),
-                  ),
-                  onChanged: (_) {
-                    if (_erro != null) setState(() => _erro = null);
-                    if (_pinCtrl.text.length == 4) _entrar();
-                  },
-                ),
-              ),
-              const SizedBox(height: 20),
-              SizedBox(
-                width:  double.infinity,
-                height: 52,
-                child:  FilledButton(
-                  onPressed: _entrar,
-                  style:     FilledButton.styleFrom(
-                    backgroundColor: AppColors.primary,
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(14)),
-                  ),
-                  child: const Text('Entrar',
-                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
-                ),
+              // ── Botão Google ──────────────────────────────────────
+              AnimatedSwitcher(
+                duration: const Duration(milliseconds: 200),
+                child: _isLoading
+                    ? const CircularProgressIndicator()
+                    : _GoogleSignInButton(onTap: _handleGoogleLogin),
               ),
 
-              const Spacer(flex: 1),
+              const SizedBox(height: 14),
+              Text(
+                'Suas conquistas ficam salvas na sua conta Google.',
+                style: AppTextStyles.xpLabel.copyWith(
+                  color: AppColors.textSecondary,
+                ),
+                textAlign: TextAlign.center,
+              ),
 
+              const Spacer(),
+
+              // ── Reset no rodapé ───────────────────────────────────
               TextButton(
-                onPressed: _resetar,
-                child: Text('Redefinir app',
-                    style: AppTextStyles.xpLabel
-                        .copyWith(color: AppColors.textSecondary)),
+                onPressed: _mostrarResetDialog,
+                child: Text(
+                  'Redefinir app',
+                  style: AppTextStyles.xpLabel.copyWith(
+                    color: AppColors.textSecondary,
+                  ),
+                ),
               ),
               const SizedBox(height: 12),
             ],
@@ -319,10 +152,87 @@ class _LoginScreenState extends State<LoginScreen>
   }
 }
 
-/// Curva de tremor para PIN errado
-class _ShakeCurve extends Curve {
+// ─────────────────────────────────────────────────────────────
+// Botão estilizado de Sign In with Google
+// ─────────────────────────────────────────────────────────────
+class _GoogleSignInButton extends StatelessWidget {
+  final VoidCallback onTap;
+  const _GoogleSignInButton({required this.onTap});
+
   @override
-  double transform(double t) {
-    return (t < 0.5 ? 2 * t : 2 * (1 - t)) * (1 - t) * 2;
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return SizedBox(
+      width: double.infinity,
+      height: 54,
+      child: OutlinedButton(
+        onPressed: onTap,
+        style: OutlinedButton.styleFrom(
+          backgroundColor: isDark ? const Color(0xFF2A2A2A) : Colors.white,
+          side: BorderSide(color: isDark ? Colors.white24 : Colors.black12),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14),
+          ),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            _GoogleLogo(),
+            const SizedBox(width: 12),
+            Text(
+              'Continuar com Google',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                color: isDark ? Colors.white : Colors.black87,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
+}
+
+class _GoogleLogo extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return CustomPaint(size: const Size(22, 22), painter: _GoogleLogoPainter());
+  }
+}
+
+class _GoogleLogoPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height / 2);
+    final radius = size.width / 2;
+    final paint = Paint()..style = PaintingStyle.fill;
+
+    const colors = [
+      Color(0xFF4285F4),
+      Color(0xFF34A853),
+      Color(0xFFFBBC05),
+      Color(0xFFEA4335),
+    ];
+
+    for (int i = 0; i < 4; i++) {
+      paint.color = colors[i];
+      canvas.drawArc(
+        Rect.fromCircle(center: center, radius: radius),
+        (i * 90 - 45) * 3.14159 / 180,
+        90 * 3.14159 / 180,
+        true,
+        paint,
+      );
+    }
+
+    paint.color = Theme.of(
+      navigatorKey.currentContext!,
+    ).scaffoldBackgroundColor;
+    canvas.drawCircle(center, radius * 0.55, paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }

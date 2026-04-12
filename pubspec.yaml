@@ -20,6 +20,10 @@ dependencies:
   collection: ^1.19.1
   image_picker: ^1.2.1
   google_fonts: ^8.0.2
+  google_sign_in: 6.2.1
+  firebase_auth: ^6.3.0
+  firebase_database: ^12.2.0
+  firebase_core: ^4.6.0
 
 dev_dependencies:
   flutter_test:

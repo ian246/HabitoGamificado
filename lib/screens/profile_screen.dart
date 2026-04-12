@@ -7,6 +7,7 @@ import '../core/theme/app_text_styles.dart';
 import '../models/achievement_trail.dart';
 import '../models/user_profile.dart';
 import '../models/achievement.dart';
+import '../services/auth_service.dart';
 import '../services/storage_service.dart';
 import '../main.dart';
 import 'signup_screen.dart';
@@ -23,25 +24,42 @@ class ProfileScreen extends StatefulWidget {
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
-  // ── IMPORTANTE: padrão é FALSE (modo CLARO) ───────────────
   bool _darkMode = false;
   String? _photoPath;
+  bool _signingOut = false;
   final _picker = ImagePicker();
 
   @override
   void initState() {
     super.initState();
-    // Só ativa dark se o perfil salvo tiver darkMode: true
     _darkMode = widget.profile?.darkMode ?? false;
     _loadPhoto();
   }
 
+  // ── Foto de perfil ────────────────────────────────────────────────────────
+
   Future<void> _loadPhoto() async {
+    final profile = widget.profile;
+
+    // Prioridade 1: foto local trocada pelo usuário (useLocalPhoto)
+    if (profile != null &&
+        profile.useLocalPhoto &&
+        profile.photoUrl.isNotEmpty) {
+      if (File(profile.photoUrl).existsSync()) {
+        setState(() => _photoPath = profile.photoUrl);
+        return;
+      }
+    }
+
+    // Prioridade 2: caminho salvo em SharedPreferences (compatibilidade v1)
     final prefs = await SharedPreferences.getInstance();
     final path = prefs.getString(kProfilePhotoKey);
     if (path != null && File(path).existsSync()) {
       setState(() => _photoPath = path);
+      return;
     }
+
+    // Prioridade 3: URL remota do Google (deixa _photoPath null e usa NetworkImage no avatar)
   }
 
   Future<void> _pickPhoto() async {
@@ -91,6 +109,25 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   final prefs = await SharedPreferences.getInstance();
                   await prefs.remove(kProfilePhotoKey);
                   setState(() => _photoPath = null);
+
+                  // Atualiza perfil: volta para URL do Google
+                  final profile = widget.profile;
+                  if (profile != null) {
+                    final updated = profile.copyWith(
+                      photoUrl: profile.isFirebaseUser
+                          ? (AuthService.instance.currentUser?.photoURL ?? '')
+                          : '',
+                      useLocalPhoto: false,
+                    );
+                    await AuthService.instance.saveProfile(updated);
+                    if (profile.isFirebaseUser) {
+                      await AuthService.instance.updatePhotoUrl(
+                        profile.uid,
+                        updated.photoUrl,
+                      );
+                    }
+                    widget.onProfileUpdate?.call();
+                  }
                   if (!mounted) return;
                   Navigator.pop(context);
                 },
@@ -100,6 +137,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         ),
       ),
     );
+
     if (source == null || !mounted) return;
 
     final picked = await _picker.pickImage(
@@ -110,19 +148,37 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
     if (picked == null) return;
 
+    // Salva localmente (SharedPreferences — compatibilidade v1)
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(kProfilePhotoKey, picked.path);
     setState(() => _photoPath = picked.path);
+
+    // Atualiza o perfil com o novo caminho e flag de foto local
+    final profile = widget.profile;
+    if (profile != null) {
+      final updated = profile.copyWith(
+        photoUrl: picked.path,
+        useLocalPhoto: true,
+      );
+      await AuthService.instance.saveProfile(updated);
+      if (profile.isFirebaseUser) {
+        await AuthService.instance.updatePhotoUrl(profile.uid, picked.path);
+      }
+      widget.onProfileUpdate?.call();
+    }
   }
 
-  /// Abre o BottomSheet de seleção de título e salva a escolha.
+  // ── Título ────────────────────────────────────────────────────────────────
+
   Future<void> _selectTitle(BuildContext ctx) async {
     final profile = widget.profile;
     if (profile == null) return;
     final unlocked = AchievementTrails.allUnlockedLevels(profile.trailProgress);
     if (unlocked.isEmpty) {
       ScaffoldMessenger.of(ctx).showSnackBar(
-        const SnackBar(content: Text('Conquiste seu primeiro título primeiro! 🏆')),
+        const SnackBar(
+          content: Text('Conquiste seu primeiro título primeiro! 🏆'),
+        ),
       );
       return;
     }
@@ -135,18 +191,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
         currentKey: profile.selectedTitleKey,
         onSelect: (key) async {
           final updated = profile.copyWith(selectedTitleKey: key);
-          await StorageService.instance.saveProfile(updated);
+          await AuthService.instance.saveProfile(updated);
           widget.onProfileUpdate?.call();
         },
       ),
     );
   }
 
+  // ── Dark mode ─────────────────────────────────────────────────────────────
+
   Future<void> _toggleDark(bool value) async {
     setState(() => _darkMode = value);
     final profile = widget.profile;
     if (profile == null) return;
-    await StorageService.instance.saveProfile(
+    await AuthService.instance.saveProfile(
       profile.copyWith(darkMode: value),
     );
     if (!mounted) return;
@@ -154,13 +212,39 @@ class _ProfileScreenState extends State<ProfileScreen> {
     widget.onProfileUpdate?.call();
   }
 
-  int get _maxStreak {
-    final p = widget.profile;
-    if (p == null || p.conquistas.isEmpty) return 0;
-    return p.conquistas.values
-        .map((a) => a.streakAtual)
-        .fold(0, (a, b) => a > b ? a : b);
+  // ── Logout ────────────────────────────────────────────────────────────────
+
+  Future<void> _handleSignOut() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Sair da conta?'),
+        content: const Text(
+          'Suas conquistas e hábitos ficam salvos.\nBasta entrar novamente com o Google.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancelar'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: TextButton.styleFrom(foregroundColor: AppColors.error),
+            child: const Text('Sair'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || !mounted) return;
+
+    setState(() => _signingOut = true);
+    await AuthService.instance.signOut();
+    // StreamBuilder no main.dart detecta o logout e volta para LoginScreen.
+    // Não precisa de Navigator aqui.
   }
+
+  // ── Reset local ───────────────────────────────────────────────────────────
 
   Future<void> _resetApp() async {
     final confirm = await showDialog<bool>(
@@ -216,6 +300,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
+  // ── Helpers ───────────────────────────────────────────────────────────────
+
+  int get _maxStreak {
+    final p = widget.profile;
+    if (p == null || p.conquistas.isEmpty) return 0;
+    return p.conquistas.values
+        .map((a) => a.streakAtual)
+        .fold(0, (a, b) => a > b ? a : b);
+  }
+
+  // ── Build ─────────────────────────────────────────────────────────────────
+
   @override
   Widget build(BuildContext context) {
     final profile = widget.profile;
@@ -223,19 +319,25 @@ class _ProfileScreenState extends State<ProfileScreen> {
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 100),
       children: [
-        // ── 1. Header (Avatar, Nome, Nível)
+        // ── 1. Header (Avatar, Nome, Nível) — idêntico ao original
         _buildIdentityHeader(context, profile),
         const SizedBox(height: 20),
 
-        // ── 2. Jornada da Patente
+        // ── 2. Jornada da Patente — idêntico ao original
         if (profile != null) _buildRankJourney(context, profile),
         if (profile != null) const SizedBox(height: 20),
 
-        // ── 3. Atributos do Jogador
+        // ── 3. Atributos do Jogador — idêntico ao original
         if (profile != null) _buildPlayerStats(context, profile),
         if (profile != null) const SizedBox(height: 20),
 
-        // ── Configurações
+        // ── 4. Conta Google (NOVO — só aparece se usuário Firebase)
+        if (profile != null && profile.isFirebaseUser) ...[
+          _buildAccountSection(context, profile),
+          const SizedBox(height: 20),
+        ],
+
+        // ── 5. Configurações — idêntico ao original
         Text('Configurações', style: AppTextStyles.sectionLabel),
         const SizedBox(height: 8),
         Card(
@@ -271,7 +373,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   value: profile?.notificacoesAtivas ?? true,
                   onChanged: (v) async {
                     if (profile == null) return;
-                    await StorageService.instance.saveProfile(
+                    await AuthService.instance.saveProfile(
                       profile.copyWith(notificacoesAtivas: v),
                     );
                     widget.onProfileUpdate?.call();
@@ -284,7 +386,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         ),
         const SizedBox(height: 16),
 
-        // ── Dados
+        // ── 6. Dados — idêntico ao original
         Text('Dados', style: AppTextStyles.sectionLabel),
         const SizedBox(height: 8),
         Card(
@@ -324,19 +426,87 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
         ),
         const SizedBox(height: 20),
-        const Center(
+
+        Center(
           child: Text(
-            'HabitFlow  ·  Dados locais',
-            style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
+            profile?.isFirebaseUser == true
+                ? 'HabitFlow  ·  Sincronizado com Google'
+                : 'HabitFlow  ·  Dados locais',
+            style: const TextStyle(
+              fontSize: 12,
+              color: AppColors.textSecondary,
+            ),
           ),
         ),
       ],
     );
   }
 
-  // ──────────────────────────────────────────────────────────────────
-  // SUB-WIDGETS GAMIFICADOS
-  // ──────────────────────────────────────────────────────────────────
+  // ─────────────────────────────────────────────────────────────────────────
+  // SEÇÃO NOVA: Conta Google
+  // ─────────────────────────────────────────────────────────────────────────
+
+  Widget _buildAccountSection(BuildContext context, UserProfile profile) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('Conta', style: AppTextStyles.sectionLabel),
+        const SizedBox(height: 8),
+        Card(
+          child: Column(
+            children: [
+              // Chip da conta conectada
+              ListTile(
+                leading: Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: AppColors.primary.withOpacity(0.12),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.verified_user_rounded,
+                    color: AppColors.primary,
+                    size: 20,
+                  ),
+                ),
+                title: const Text(
+                  'Google conectado',
+                  style: TextStyle(fontWeight: FontWeight.w600),
+                ),
+                subtitle: Text(profile.email, style: AppTextStyles.xpLabel),
+              ),
+              const Divider(height: 1, indent: 16, endIndent: 16),
+
+              // Botão sair
+              ListTile(
+                leading: _signingOut
+                    ? const SizedBox(
+                        width: 24,
+                        height: 24,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.logout_rounded, color: AppColors.error),
+                title: const Text(
+                  'Sair da conta',
+                  style: TextStyle(color: AppColors.error),
+                ),
+                subtitle: Text(
+                  'Dados ficam salvos na nuvem',
+                  style: AppTextStyles.xpLabel,
+                ),
+                onTap: _signingOut ? null : _handleSignOut,
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // SUB-WIDGETS GAMIFICADOS — idênticos ao original, apenas avatar atualizado
+  // ─────────────────────────────────────────────────────────────────────────
 
   Widget _buildIdentityHeader(BuildContext context, UserProfile? profile) {
     final theme = profile != null
@@ -345,30 +515,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
     return Column(
       children: [
-        // Avatar com botão de foto
+        // Avatar — agora suporta URL remota (Google) além de arquivo local
         GestureDetector(
           onTap: _pickPhoto,
           child: Stack(
             alignment: Alignment.bottomRight,
             children: [
-              CircleAvatar(
+              _ProfileAvatar(
+                profile: profile,
+                localPhotoPath: _photoPath,
+                theme: theme,
                 radius: 54,
-                backgroundColor: theme.surface,
-                backgroundImage: _photoPath != null
-                    ? FileImage(File(_photoPath!))
-                    : null,
-                child: _photoPath == null
-                    ? Text(
-                        profile?.apelido.isNotEmpty == true
-                            ? profile!.apelido[0].toUpperCase()
-                            : '?',
-                        style: TextStyle(
-                          fontSize: 40,
-                          fontWeight: FontWeight.w700,
-                          color: theme.primary,
-                        ),
-                      )
-                    : null,
               ),
               Container(
                 width: 32,
@@ -402,7 +559,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         Text(profile?.nome ?? '', style: AppTextStyles.greeting),
         const SizedBox(height: 12),
 
-        // Tag de Nível Compacta
+        // Tag de Nível — idêntico ao original
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
           decoration: BoxDecoration(
@@ -445,7 +602,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
         ),
 
-        // Tag de Título Ativo (clicável)
+        // Tag de Título Ativo — idêntico ao original
         if (profile != null) ...[
           const SizedBox(height: 10),
           Builder(
@@ -458,18 +615,26 @@ class _ProfileScreenState extends State<ProfileScreen> {
               return GestureDetector(
                 onTap: () => _selectTitle(ctx),
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 6,
+                  ),
                   decoration: BoxDecoration(
                     color: titleColor.withOpacity(0.12),
                     borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: titleColor.withOpacity(0.4), width: 1.2),
+                    border: Border.all(
+                      color: titleColor.withOpacity(0.4),
+                      width: 1.2,
+                    ),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       if (hasTitle) ...[
-                        Text(active.trail.emoji,
-                            style: const TextStyle(fontSize: 13)),
+                        Text(
+                          active.trail.emoji,
+                          style: const TextStyle(fontSize: 13),
+                        ),
                         const SizedBox(width: 5),
                         ConstrainedBox(
                           constraints: const BoxConstraints(maxWidth: 180),
@@ -506,6 +671,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
+  // Jornada da Patente — idêntico ao original
   Widget _buildRankJourney(BuildContext context, UserProfile profile) {
     final maxStreak = _maxStreak;
     final currentFrame = AppColors.frameForDays(maxStreak);
@@ -567,7 +733,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                // Atual
                 Column(
                   children: [
                     _buildFrameImage(currentFrame.name, size: 70),
@@ -582,8 +747,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     ),
                   ],
                 ),
-
-                // Trilha de progresso
                 Expanded(
                   child: Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -591,10 +754,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       children: [
                         Text(
                           '$maxStreak dias',
-                          style: TextStyle(
+                          style: const TextStyle(
                             fontSize: 14,
                             fontWeight: FontWeight.w800,
-                            color: AppColors.textPrimary,
                           ),
                         ),
                         const SizedBox(height: 6),
@@ -604,13 +766,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             tween: Tween(begin: 0, end: progress),
                             duration: const Duration(seconds: 1),
                             curve: Curves.easeOut,
-                            builder: (context, val, child) =>
-                                LinearProgressIndicator(
-                                  value: val,
-                                  minHeight: 8,
-                                  backgroundColor: AppColors.surfaceHover,
-                                  color: currentFrame.ring,
-                                ),
+                            builder: (_, val, __) => LinearProgressIndicator(
+                              value: val,
+                              minHeight: 8,
+                              backgroundColor: AppColors.surfaceHover,
+                              color: currentFrame.ring,
+                            ),
                           ),
                         ),
                         const SizedBox(height: 6),
@@ -623,8 +784,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     ),
                   ),
                 ),
-
-                // Próxima
                 if (nextFrame != null)
                   Column(
                     children: [
@@ -636,7 +795,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       const SizedBox(height: 8),
                       Text(
                         nextFrame.name,
-                        style: TextStyle(
+                        style: const TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
                           color: AppColors.textSecondary,
@@ -667,22 +826,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  // Helper para carregar a imagem da moldura de assets em vez do Custom Painter
   Widget _buildFrameImage(
     String rawName, {
     double size = 60,
     bool isLocked = false,
   }) {
-    // Normaliza o nome para minúsculo e sem acentos, ex: "Ouro" -> "ouro_frame.png", "Platina" -> "platina_frame.png"
     final frameName = rawName.toLowerCase();
     final assetPath = 'assets/frames/${frameName}_frame.png';
-
     Widget image = Image.asset(
       assetPath,
       width: size,
       height: size,
       fit: BoxFit.contain,
-      errorBuilder: (context, error, stackTrace) => Container(
+      errorBuilder: (_, __, ___) => Container(
         width: size,
         height: size,
         decoration: BoxDecoration(
@@ -696,9 +852,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         ),
       ),
     );
-
     if (isLocked) {
-      // Se for a próxima patente, apenas reduz a opacidade para manter a cor visível de forma suave
       return Stack(
         alignment: Alignment.center,
         children: [
@@ -722,12 +876,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Widget _buildPlayerStats(BuildContext context, UserProfile profile) {
-    int totalDiasAtivos =
+    final totalDiasAtivos =
         profile.conquistas[AchievementCategory.geral]?.diasConcluidos.length ??
         0;
-    int maxStreakGeral =
+    final maxStreakGeral =
         profile.conquistas[AchievementCategory.geral]?.melhorStreak ?? 0;
-    int diasPerfeitos = profile.diasPerfeitos.length;
+    final diasPerfeitos = profile.diasPerfeitos.length;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -780,6 +934,65 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 }
 
+// ─────────────────────────────────────────────────────────────
+// Avatar unificado: local > URL Google > inicial do nome
+// ─────────────────────────────────────────────────────────────
+class _ProfileAvatar extends StatelessWidget {
+  final UserProfile? profile;
+  final String? localPhotoPath;
+  final dynamic theme; // LevelTheme do AppColors
+  final double radius;
+
+  const _ProfileAvatar({
+    required this.profile,
+    required this.localPhotoPath,
+    required this.theme,
+    required this.radius,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    // 1. Foto local (câmera/galeria)
+    if (localPhotoPath != null && File(localPhotoPath!).existsSync()) {
+      return CircleAvatar(
+        radius: radius,
+        backgroundColor: theme.surface,
+        backgroundImage: FileImage(File(localPhotoPath!)),
+      );
+    }
+
+    // 2. URL remota do Google
+    final remoteUrl = profile?.photoUrl ?? '';
+    if (remoteUrl.startsWith('http') && !profile!.useLocalPhoto) {
+      return CircleAvatar(
+        radius: radius,
+        backgroundColor: theme.surface,
+        backgroundImage: NetworkImage(remoteUrl),
+        onBackgroundImageError: (_, __) {},
+      );
+    }
+
+    // 3. Inicial do nome (fallback)
+    return CircleAvatar(
+      radius: radius,
+      backgroundColor: theme.surface,
+      child: Text(
+        profile?.apelido.isNotEmpty == true
+            ? profile!.apelido[0].toUpperCase()
+            : '?',
+        style: TextStyle(
+          fontSize: 40,
+          fontWeight: FontWeight.w700,
+          color: theme.primary,
+        ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────
+// Widgets auxiliares — idênticos ao original
+// ─────────────────────────────────────────────────────────────
 class _StatRow extends StatelessWidget {
   final IconData icon;
   final Color color;
@@ -839,7 +1052,6 @@ class _StatRow extends StatelessWidget {
   }
 }
 
-// ── Seletor de Título ─────────────────────────────────────────
 class _TitleSelectionSheet extends StatefulWidget {
   final List<({AchievementTrail trail, TrailLevel level})> unlocked;
   final String? currentKey;
@@ -887,7 +1099,6 @@ class _TitleSelectionSheetState extends State<_TitleSelectionSheet> {
         ),
         child: Column(
           children: [
-            // Handle
             const SizedBox(height: 12),
             Container(
               width: 40,
@@ -898,8 +1109,6 @@ class _TitleSelectionSheetState extends State<_TitleSelectionSheet> {
               ),
             ),
             const SizedBox(height: 16),
-
-            // Header
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
               child: Row(
@@ -910,9 +1119,9 @@ class _TitleSelectionSheetState extends State<_TitleSelectionSheet> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
+                        const Text(
                           'Escolha seu Título',
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 18,
                             fontWeight: FontWeight.w800,
                           ),
@@ -932,8 +1141,6 @@ class _TitleSelectionSheetState extends State<_TitleSelectionSheet> {
             ),
             const SizedBox(height: 12),
             const Divider(height: 1),
-
-            // Lista de títulos desbloqueados
             Expanded(
               child: ListView.builder(
                 controller: scrollController,
@@ -961,8 +1168,8 @@ class _TitleSelectionSheetState extends State<_TitleSelectionSheet> {
                         color: isSelected
                             ? tierColor.withOpacity(0.12)
                             : (isDark
-                                ? AppColors.surfaceCard
-                                : Colors.grey.shade50),
+                                  ? AppColors.surfaceCard
+                                  : Colors.grey.shade50),
                         borderRadius: BorderRadius.circular(16),
                         border: Border.all(
                           color: isSelected
@@ -973,7 +1180,6 @@ class _TitleSelectionSheetState extends State<_TitleSelectionSheet> {
                       ),
                       child: Row(
                         children: [
-                          // Emoji da trilha + ícone do tier
                           Text(
                             item.trail.emoji,
                             style: const TextStyle(fontSize: 24),
@@ -988,9 +1194,7 @@ class _TitleSelectionSheetState extends State<_TitleSelectionSheet> {
                                   style: TextStyle(
                                     fontSize: 15,
                                     fontWeight: FontWeight.w700,
-                                    color: isSelected
-                                        ? tierColor
-                                        : null,
+                                    color: isSelected ? tierColor : null,
                                   ),
                                 ),
                                 Text(
@@ -1024,8 +1228,6 @@ class _TitleSelectionSheetState extends State<_TitleSelectionSheet> {
                 },
               ),
             ),
-
-            // Botão Confirmar
             SafeArea(
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),

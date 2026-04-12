@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import '../core/theme/app_colors.dart';
 import '../core/theme/app_text_styles.dart';
 import '../models/user_profile.dart';
-import '../services/storage_service.dart';
+import '../services/auth_service.dart';
 import '../services/notification_service.dart';
 import 'home_screen.dart';
 
@@ -20,7 +20,8 @@ class _SignupScreenState extends State<SignupScreen> {
   final _pinCtrl = TextEditingController();
   final _pinConfCtrl = TextEditingController();
   bool _obscurePin = true;
-  bool _loading = false;
+  bool _isLoading = false;
+  bool _isGoogleLoading = false;
 
   @override
   void dispose() {
@@ -33,7 +34,7 @@ class _SignupScreenState extends State<SignupScreen> {
 
   Future<void> _criarPerfil() async {
     if (!_formKey.currentState!.validate()) return;
-    setState(() => _loading = true);
+    setState(() => _isLoading = true);
 
     final profile = UserProfile.create(
       nome: _nomeCtrl.text.trim(),
@@ -41,7 +42,7 @@ class _SignupScreenState extends State<SignupScreen> {
       pinHash: _pinCtrl.text, // v1: texto simples. v2: use crypto SHA-256
     );
 
-    await StorageService.instance.saveProfile(profile);
+    await AuthService.instance.saveProfile(profile);
 
     // Solicita permissão de notificação
     await NotificationService.instance.requestPermission();
@@ -50,6 +51,26 @@ class _SignupScreenState extends State<SignupScreen> {
     Navigator.of(
       context,
     ).pushReplacement(MaterialPageRoute(builder: (_) => const HomeScreen()));
+  }
+
+  Future<void> _handleGoogleSignup() async {
+    setState(() => _isGoogleLoading = true);
+    try {
+      final user = await AuthService.instance.signInWithGoogle();
+      if (user != null) {
+        // Sucesso! O AuthService já cuidou de criar/vincular o perfil.
+        // O main.dart StreamBuilder vai redirecionar sozinho,
+        // mas podemos forçar se necessário.
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erro ao entrar com Google: $e')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isGoogleLoading = false);
+    }
   }
 
   @override
@@ -163,24 +184,89 @@ class _SignupScreenState extends State<SignupScreen> {
                   width: double.infinity,
                   height: 52,
                   child: FilledButton(
-                    onPressed: _loading ? null : _criarPerfil,
+                    onPressed: (_isLoading || _isGoogleLoading)
+                        ? null
+                        : _criarPerfil,
                     style: FilledButton.styleFrom(
                       backgroundColor: AppColors.primary,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(14),
                       ),
                     ),
-                    child: _loading
+                    child: _isLoading
                         ? const CircularProgressIndicator(
                             color: Colors.white,
                             strokeWidth: 2,
                           )
                         : const Text(
-                            'Criar meu perfil',
+                            'Criar meu perfil offline',
                             style: TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.w600,
                             ),
+                          ),
+                  ),
+                ),
+                const SizedBox(height: 20),
+
+                // ── Divisor ───────────────────────────────
+                Row(
+                  children: [
+                    const Expanded(child: Divider()),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: Text(
+                        'OU',
+                        style: AppTextStyles.xpLabel.copyWith(fontSize: 12),
+                      ),
+                    ),
+                    const Expanded(child: Divider()),
+                  ],
+                ),
+                const SizedBox(height: 20),
+
+                // ── Botão Google ──────────────────────────
+                SizedBox(
+                  width: double.infinity,
+                  height: 52,
+                  child: OutlinedButton(
+                    onPressed: (_isLoading || _isGoogleLoading)
+                        ? null
+                        : _handleGoogleSignup,
+                    style: OutlinedButton.styleFrom(
+                      side: BorderSide(color: Colors.grey.withOpacity(0.3)),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                    ),
+                    child: _isGoogleLoading
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Image.network(
+                                'https://upload.wikimedia.org/wikipedia/commons/c/c1/Google_\"G\"_Logo.svg',
+                                width: 20,
+                                height: 20,
+                                errorBuilder: (c, e, s) => const Icon(
+                                  Icons.account_circle_outlined,
+                                  size: 20,
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              const Text(
+                                'Começar com Google',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ],
                           ),
                   ),
                 ),

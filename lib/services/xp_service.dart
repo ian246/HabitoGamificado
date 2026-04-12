@@ -3,6 +3,7 @@ import '../models/user_profile.dart';
 import '../models/achievement.dart';
 import '../core/utils/date_utils.dart';
 import 'storage_service.dart';
+import 'auth_service.dart';
 import 'notification_service.dart';
 
 /// ─────────────────────────────────────────────────────────────
@@ -144,7 +145,7 @@ class XpService {
         );
       }
     } else {
-      await StorageService.instance.saveProfile(novoPerfil);
+      await AuthService.instance.saveProfile(novoPerfil);
       resultado = XpResult(
         xpGanho:      xp,
         subioDeNivel: subiu,
@@ -213,7 +214,7 @@ class XpService {
       perfil           = await _aplicarXp(perfil, xp);
       subiu            = perfil.nivel > nivelAntes;
     } else {
-      await StorageService.instance.saveProfile(perfil);
+      await AuthService.instance.saveProfile(perfil);
     }
 
     return (
@@ -285,7 +286,7 @@ class XpService {
   /// Chame quando o usuário criar um novo hábito
   Future<XpResult> onHabitCreated(UserProfile profile) async {
     final perfil = profile.incrementarTrilha('colecionador', 1);
-    await StorageService.instance.saveProfile(perfil);
+    await AuthService.instance.saveProfile(perfil);
     return const XpResult();
   }
 
@@ -294,7 +295,7 @@ class XpService {
   /// Aplica XP ao perfil, salva e retorna o novo perfil
   Future<UserProfile> _aplicarXp(UserProfile profile, int xp) async {
     final atualizado = profile.adicionarXp(xp);
-    await StorageService.instance.saveProfile(atualizado);
+    await AuthService.instance.saveProfile(atualizado);
     return atualizado;
   }
 
