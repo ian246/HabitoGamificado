@@ -573,7 +573,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               Icon(Icons.star_rounded, size: 16, color: theme.primary),
               const SizedBox(width: 6),
               Text(
-                'Nível ${profile?.nivel ?? 1} • ${profile?.nomeDonivel ?? "Broto"}',
+                'Nível ${profile?.nivel ?? 1} • ${profile?.nomeDonivel ?? "Broto"} • ${profile?.rank ?? "Prata"}',
                 style: TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.w700,
@@ -925,6 +925,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 label: 'Total de Dias Ativos',
                 value: totalDiasAtivos.toString(),
                 description: 'Dias em que você completou ao menos 1 hábito',
+              ),
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 12),
+                child: Divider(height: 1),
+              ),
+              _StatRow(
+                icon: Icons.emoji_events_rounded,
+                color: const Color(0xFFCD7F32), // Bronze/Cobre metálico
+                label: 'Total de Conquistas',
+                value: profile.totalAchievementsCount.toString(),
+                description: 'Soma de todos os marcos desbloqueados',
               ),
             ],
           ),

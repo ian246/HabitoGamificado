@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_app_habitos/main.dart';
 import '../core/theme/app_colors.dart';
 import '../core/theme/app_text_styles.dart';
 import '../models/habit.dart';
@@ -41,15 +42,38 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _load() async {
-    setState(() => _loading = true);
+    if (mounted) setState(() => _loading = true);
+
     final habits = await StorageService.instance.loadAllHabits();
-    final profile = StorageService.instance.loadProfile();
+    var profile = StorageService.instance.loadProfile();
+
+    // ── Correção de race condition ────────────────────────────
+    // Após um Google sign-in recente, o AuthService pode ainda estar
+    // salvando o perfil quando o StreamBuilder já navega para cá.
+    // Tentamos até 5 × 300 ms (1,5 s) antes de desistir.
+    if (profile == null) {
+      for (int i = 0; i < 5; i++) {
+        await Future.delayed(const Duration(milliseconds: 300));
+        if (!mounted) return;
+        profile = StorageService.instance.loadProfile();
+        if (profile != null) break;
+      }
+    }
+
     if (!mounted) return;
     setState(() {
       _habits = habits;
       _profile = profile;
       _loading = false;
     });
+
+    // Se o perfil carregado está incompleto, voltamos para a tela de login/cadastro
+    if (profile == null || !profile.setupComplete) {
+      // O StreamBuilder no main.dart deve processar isso automaticamente,
+      // mas forçamos um rebuild para garantir.
+      HabitFlowApp.appKey.currentState?.setState(() {});
+    }
+
     // Re-agenda notificações ao abrir o app
     await NotificationService.instance.rescheduleAll(_habits);
   }
@@ -64,17 +88,13 @@ class _HomeScreenState extends State<HomeScreen> {
       _profile!,
     );
 
-    // Reload state
     await _load();
-
     if (!mounted) return;
 
-    // Verificar dia perfeito
     if (habitAtualizado.completoHoje) {
       await _checkPerfectDay();
     }
 
-    // Mostrar eventos de XP
     if (result.temEvento) {
       _showXpEvent(result);
     }
@@ -137,7 +157,7 @@ class _HomeScreenState extends State<HomeScreen> {
     await Navigator.of(
       context,
     ).push(MaterialPageRoute(builder: (_) => HabitDetailScreen(habit: habit)));
-    await _load(); // recarrega caso tenha editado no detalhe
+    await _load();
   }
 
   void _showXpEvent(XpResult result) {
@@ -164,26 +184,34 @@ class _HomeScreenState extends State<HomeScreen> {
   // ── Build ──────────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
+    // ── FIX: Enquanto carregando, exibe tela de loading completa.
+    // Isso evita o bug do AppBar que aparecia sem o XpHeader porque
+    // _profile era null durante o carregamento inicial. Separar
+    // os dois estados (loading / loaded) garante que o AppBar
+    // com a altura aumentada só seja construído quando os dados
+    // já estão disponíveis.
+    if (_loading) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
+
     return Scaffold(
       appBar: _buildAppBar(),
-      body: _loading
-          ? const Center(child: CircularProgressIndicator())
-          : IndexedStack(
-              index: _currentIndex,
-              children: [
-                _HabitListTab(
-                  habits: _habits,
-                  onSubtaskToggle: _onSubtaskToggle,
-                  onEdit: _onEditHabit,
-                  onDelete: _onDeleteHabit,
-                  onTap: _onHabitTap,
-                  profile: _profile,
-                ),
-                ProgressScreen(habits: _habits),
-                AchievementsScreen(profile: _profile),
-                ProfileScreen(profile: _profile, onProfileUpdate: _load),
-              ],
-            ),
+      body: IndexedStack(
+        index: _currentIndex,
+        children: [
+          _HabitListTab(
+            habits: _habits,
+            onSubtaskToggle: _onSubtaskToggle,
+            onEdit: _onEditHabit,
+            onDelete: _onDeleteHabit,
+            onTap: _onHabitTap,
+            profile: _profile,
+          ),
+          ProgressScreen(habits: _habits),
+          AchievementsScreen(profile: _profile),
+          ProfileScreen(profile: _profile, onProfileUpdate: _load),
+        ],
+      ),
       floatingActionButton: _currentIndex == 0
           ? FloatingActionButton.extended(
               onPressed: _onAddHabit,
@@ -228,10 +256,12 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   PreferredSizeWidget _buildAppBar() {
-    final titles = ['HabitFlow', 'Progresso', 'Conquistas', 'Perfil'];
+    const titles = ['HabitFlow', 'Progresso', 'Conquistas', 'Perfil'];
+
+    final showXpHeader = _currentIndex == 0 && _profile != null;
 
     return AppBar(
-      title: _currentIndex == 0 && _profile != null
+      title: showXpHeader
           ? Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
@@ -245,8 +275,8 @@ class _HomeScreenState extends State<HomeScreen> {
               ],
             )
           : Text(titles[_currentIndex]),
-      toolbarHeight: _currentIndex == 0 && _profile != null
-          ? 180 // Maior espaço para nova UI do XpHeader
+      toolbarHeight: showXpHeader
+          ? 180 // Espaço amplo para o XpHeader
           : kToolbarHeight,
     );
   }
@@ -286,13 +316,12 @@ class _HabitListTab extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (habits.isEmpty) {
-      return _EmptyState();
+      return const _EmptyState();
     }
 
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 100),
       children: [
-        // Hábitos do período atual
         if (_habitsDoPeriodo.isNotEmpty) ...[
           _SectionHeader(label: _periodLabel(_currentPeriod), isActive: true),
           ..._habitsDoPeriodo.map(
@@ -305,11 +334,9 @@ class _HabitListTab extends StatelessWidget {
             ),
           ),
         ],
-
-        // Outros hábitos do dia
         if (_outrosHabitos.isNotEmpty) ...[
           const SizedBox(height: 8),
-          _SectionHeader(label: 'Outros hábitos de hoje'),
+          const _SectionHeader(label: 'Outros hábitos de hoje'),
           ..._outrosHabitos.map(
             (h) => HabitCard(
               habit: h,
@@ -354,6 +381,8 @@ class _SectionHeader extends StatelessWidget {
 }
 
 class _EmptyState extends StatelessWidget {
+  const _EmptyState();
+
   @override
   Widget build(BuildContext context) => Center(
     child: Column(

@@ -147,7 +147,7 @@ class NotificationService {
           styleInformation: const BigTextStyleInformation(''),
         ),
       ),
-      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+      androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
       matchDateTimeComponents: DateTimeComponents.time, // repete todo dia
     );
   }

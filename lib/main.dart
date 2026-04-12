@@ -9,7 +9,6 @@ import 'services/auth_service.dart';
 import 'services/notification_service.dart';
 import 'services/storage_service.dart';
 import 'screens/login_screen.dart';
-import 'screens/signup_screen.dart';
 import 'screens/home_screen.dart';
 
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
@@ -28,7 +27,7 @@ Future<void> main() async {
   // Cache offline: app salva e lê dados sem internet, sincroniza ao voltar
   FirebaseDatabase.instance.setPersistenceEnabled(true);
 
-  // Services locais (mantém lógica original da v1)
+  // Services locais
   await StorageService.instance.init();
   await NotificationService.instance.init();
 
@@ -42,6 +41,9 @@ Future<void> main() async {
 class HabitFlowApp extends StatefulWidget {
   const HabitFlowApp({super.key});
 
+  /// Permite resetar o estado global de qualquer lugar (ex: LoginScreen)
+  static final GlobalKey<HabitFlowAppState> appKey = GlobalKey<HabitFlowAppState>();
+
   static HabitFlowAppState of(BuildContext context) =>
       context.findAncestorStateOfType<HabitFlowAppState>()!;
 
@@ -51,6 +53,11 @@ class HabitFlowApp extends StatefulWidget {
 
 class HabitFlowAppState extends State<HabitFlowApp> {
   ThemeMode _themeMode = ThemeMode.dark;
+
+  /// Quando true, o StreamBuilder exibe o SplashScreen e NÃO navega
+  /// automaticamente — isso dá espaço para o LoginScreen concluir a
+  /// navegação via Navigator depois do Google sign-in.
+  bool _signingIn = false;
 
   @override
   void initState() {
@@ -67,55 +74,68 @@ class HabitFlowAppState extends State<HabitFlowApp> {
     }
   }
 
-  // Chamado pela ProfileScreen ao toggar o switch — atualiza em tempo real
+  /// Chamado pela ProfileScreen ao alternar o tema.
   void setTheme(bool isDark) {
     setState(() => _themeMode = isDark ? ThemeMode.dark : ThemeMode.light);
+  }
+
+  /// Chamado pelo LoginScreen para pausar/retomar o roteamento do StreamBuilder.
+  void setSigningIn(bool value) {
+    if (mounted) setState(() => _signingIn = value);
   }
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      key: HabitFlowApp.appKey,
       navigatorKey: navigatorKey,
       title: 'HabitFlow',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light,
       darkTheme: AppTheme.dark,
       themeMode: _themeMode,
-      // StreamBuilder é o árbitro de navegação.
-      // Firebase emite:
-      //   null  → não logado → LoginScreen (ou SignupScreen se também não tiver perfil local)
-      //   User  → logado    → HomeScreen
       home: StreamBuilder<User?>(
         stream: AuthService.instance.authStateChanges,
         builder: (context, snapshot) {
-          // Firebase verificando token (~1s na abertura)
+          // 1. Firebase verificando token (~1 s na abertura)
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const _SplashScreen();
           }
 
-          if (snapshot.data != null) {
-            // Usuário autenticado — vai para Home
+          // 2. Sign-in em progresso: aguarda o LoginScreen concluir a
+          //    navegação via Navigator — evita conflito de rotas.
+          if (_signingIn) {
+            return const _SplashScreen();
+          }
+
+          bool isComplete = false;
+          if (StorageService.instance.hasProfile) {
+            isComplete = StorageService.instance.loadProfile()?.setupComplete ?? false;
+          }
+
+          // 3. Autenticado no Firebase + Perfil Configurado → Home
+          if (snapshot.data != null && isComplete) {
             return const HomeScreen();
           }
 
-          // Não logado — decide entre Login (tem perfil local) e Signup (novo)
-          if (!StorageService.instance.hasProfile) {
-            return const SignupScreen();
+          // 4. Não autenticado no Firebase, mas tem perfil local configurado (offline) → Home
+          if (snapshot.data == null && isComplete) {
+            return const HomeScreen();
           }
+
+          // 5. Novo usuário sem nenhum perfil → tela de boas-vindas
           return const LoginScreen();
         },
       ),
       routes: {
         '/home': (_) => const HomeScreen(),
         '/login': (_) => const LoginScreen(),
-        '/signup': (_) => const SignupScreen(),
       },
     );
   }
 }
 
-/// Splash enquanto o Firebase verifica o token de autenticação.
-/// Aparece por ~1s — evita mostrar tela branca na abertura.
+/// Splash enquanto o Firebase verifica o token ou o sign-in está em progresso.
 class _SplashScreen extends StatelessWidget {
   const _SplashScreen();
 
@@ -123,7 +143,26 @@ class _SplashScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-      body: const Center(child: CircularProgressIndicator()),
+      body: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              'HabitFlow',
+              style: Theme.of(context).textTheme.headlineLarge?.copyWith(
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: -0.5,
+                  ),
+            ),
+            const SizedBox(height: 28),
+            const SizedBox(
+              width: 28,
+              height: 28,
+              child: CircularProgressIndicator(strokeWidth: 2.5),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

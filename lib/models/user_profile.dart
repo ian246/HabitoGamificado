@@ -60,6 +60,9 @@ class UserProfile {
   /// Null = usar o fallback automático (maior tier conquistado).
   final String? selectedTitleKey;
 
+  /// Indica se o usuário já passou pela tela de boas-vindas/tutorial.
+  final bool setupComplete;
+
   const UserProfile({
     // v2
     this.uid = '',
@@ -79,6 +82,7 @@ class UserProfile {
     this.diasPerfeitos = const [],
     this.trailProgress = const {},
     this.selectedTitleKey,
+    this.setupComplete = false,
   });
 
   // ── Factory original (v1 — não alterado) ─────────────────
@@ -142,13 +146,15 @@ class UserProfile {
     final gamification = data['gamification'] as Map? ?? {};
 
     // Reconstrói conquistas (se salvas no banco)
-    final conquistasRaw =
-        gamification['conquistas'] as Map<String, dynamic>? ?? {};
+    final conquistasRaw = gamification['conquistas'] is Map
+        ? Map<String, dynamic>.from(gamification['conquistas'] as Map)
+        : <String, dynamic>{};
+
     final conquistas = <AchievementCategory, Achievement>{};
     for (final cat in AchievementCategory.values) {
       final raw = conquistasRaw[cat.valor];
       conquistas[cat] = raw != null
-          ? Achievement.fromJson(raw as Map<String, dynamic>)
+          ? Achievement.fromJson(Map<String, dynamic>.from(raw as Map))
           : Achievement(categoria: cat);
     }
 
@@ -169,10 +175,11 @@ class UserProfile {
       diasPerfeitos: List<String>.from(
         gamification['diasPerfeitos'] as List? ?? [],
       ),
-      trailProgress: Map<String, int>.from(
-        gamification['trailProgress'] as Map? ?? {},
-      ),
+      trailProgress: gamification['trailProgress'] is Map
+          ? Map<String, int>.from(gamification['trailProgress'] as Map)
+          : {},
       selectedTitleKey: gamification['selectedTitleKey'] as String?,
+      setupComplete: prefs['setupComplete'] as bool? ?? true,
     );
   }
 
@@ -189,10 +196,16 @@ class UserProfile {
       // Não sobe caminho local para o banco — só URL remota
       'photoUrl': useLocalPhoto ? '' : photoUrl,
       'criadoEm': criadoEm.toIso8601String(),
-      'stats': {'level': nivel, 'xp': xpTotal, 'rank': _rankFromLevel(nivel)},
+      'stats': {
+        'level': nivel,
+        'xp': xpTotal,
+        'rank': _rankFromLevel(nivel),
+        'conquistas_total': totalAchievementsCount,
+      },
       'preferences': {
         'theme': darkMode ? 'dark' : 'light',
         'notifications': notificacoesAtivas,
+        'setupComplete': setupComplete,
       },
       // Gamificação completa sobe para o banco — preserva tudo entre reinstalações
       'gamification': {
@@ -203,6 +216,8 @@ class UserProfile {
       },
     };
   }
+
+  String get rank => _rankFromLevel(nivel);
 
   // ── Propriedades derivadas (v1 — não alteradas) ───────────
 
@@ -266,6 +281,13 @@ class UserProfile {
   /// Prioridade: foto local trocada pelo usuário > URL do Google > vazio.
   String get effectivePhotoUrl => photoUrl;
 
+  /// Soma o total de marcos desbloqueados em todas as categorias.
+  int get totalAchievementsCount {
+    int count = 0;
+    conquistas.values.forEach((a) => count += a.marcosDesbloqueados.length);
+    return count;
+  }
+
   // ── copyWith (v1 + v2 campos adicionados) ────────────────
   UserProfile copyWith({
     String? uid,
@@ -284,6 +306,7 @@ class UserProfile {
     List<String>? diasPerfeitos,
     Map<String, int>? trailProgress,
     Object? selectedTitleKey = _sentinel,
+    bool? setupComplete,
   }) => UserProfile(
     uid: uid ?? this.uid,
     email: email ?? this.email,
@@ -303,6 +326,7 @@ class UserProfile {
     selectedTitleKey: selectedTitleKey == _sentinel
         ? this.selectedTitleKey
         : selectedTitleKey as String?,
+    setupComplete: setupComplete ?? this.setupComplete,
   );
 
   static const Object _sentinel = Object();
@@ -350,6 +374,7 @@ class UserProfile {
     'conquistas': conquistas.map((k, v) => MapEntry(k.valor, v.toJson())),
     'diasPerfeitos': diasPerfeitos,
     'trailProgress': trailProgress,
+    'setupComplete': setupComplete,
     if (selectedTitleKey != null) 'selectedTitleKey': selectedTitleKey,
   };
 
@@ -382,6 +407,7 @@ class UserProfile {
       diasPerfeitos: List<String>.from(json['diasPerfeitos'] as List? ?? []),
       trailProgress: Map<String, int>.from(json['trailProgress'] as Map? ?? {}),
       selectedTitleKey: json['selectedTitleKey'] as String?,
+      setupComplete: json['setupComplete'] as bool? ?? true,
     );
   }
 
@@ -397,14 +423,14 @@ class UserProfile {
   // ── Helpers privados ──────────────────────────────────────
   static String _rankFromLevel(int nivel) {
     const ranks = [
-      'Bronze',
-      'Bronze',
       'Prata',
       'Prata',
       'Ouro',
       'Ouro',
       'Platina',
+      'Platina',
       'Esmeralda',
+      'Diamante',
       'Mestre',
     ];
     return ranks[(nivel - 1).clamp(0, 8)];
