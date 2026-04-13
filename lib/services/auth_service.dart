@@ -137,7 +137,7 @@ class AuthService {
     final user = _auth.currentUser;
     if (user == null) return;
     try {
-      await _db.child('habits/${user.uid}/${habit.id}').set(habit.toJson());
+      await _db.child('users/${user.uid}/habits/${habit.id}').set(habit.toJson());
     } catch (e) {
       debugPrint('saveHabitRemote error: $e');
     }
@@ -148,7 +148,7 @@ class AuthService {
     final user = _auth.currentUser;
     if (user == null) return;
     try {
-      await _db.child('habits/${user.uid}/$habitId').remove();
+      await _db.child('users/${user.uid}/habits/$habitId').remove();
     } catch (e) {
       debugPrint('deleteHabitRemote error: $e');
     }
@@ -168,7 +168,7 @@ class AuthService {
 
   Future<List<Habit>> _fetchHabitsRemote(String uid) async {
     try {
-      final snapshot = await _db.child('habits/$uid').get();
+      final snapshot = await _db.child('users/$uid/habits').get();
       if (!snapshot.exists) return [];
 
       final data = Map<String, dynamic>.from(snapshot.value as Map);

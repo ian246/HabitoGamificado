@@ -5,6 +5,7 @@ import '../core/painters/week_chart_painter.dart';
 import '../core/utils/date_utils.dart';
 import '../models/habit.dart';
 import '../services/storage_service.dart';
+import '../services/auth_service.dart';
 import 'habit_form_screen.dart';
 
 class HabitDetailScreen extends StatefulWidget {
@@ -37,6 +38,13 @@ class _HabitDetailScreenState extends State<HabitDetailScreen> {
     );
     if (editado != null) {
       await StorageService.instance.saveHabitLocal(editado);
+
+      // Sincronização Remota (v2.1)
+      final profile = StorageService.instance.loadProfile();
+      if (profile != null && profile.isFirebaseUser) {
+        await AuthService.instance.saveHabitRemote(editado);
+      }
+
       setState(() => _habit = editado);
     }
   }
@@ -65,6 +73,13 @@ class _HabitDetailScreenState extends State<HabitDetailScreen> {
 
     if (confirm == true && mounted) {
       await StorageService.instance.deleteHabitLocal(_habit.id);
+
+      // Sincronização Remota (v2.1)
+      final profile = StorageService.instance.loadProfile();
+      if (profile != null && profile.isFirebaseUser) {
+        await AuthService.instance.deleteHabitRemote(_habit.id);
+      }
+
       if (mounted) Navigator.of(context).pop();
     }
   }

@@ -157,6 +157,12 @@ class XpService {
     }
 
     await StorageService.instance.saveHabitLocal(habitAtualizado);
+
+    // Sincronização Remota (v2.1)
+    if (novoPerfil.isFirebaseUser) {
+      await AuthService.instance.saveHabitRemote(habitAtualizado);
+    }
+
     return (habitAtualizado, resultado);
   }
 
