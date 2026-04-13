@@ -1,7 +1,9 @@
+import 'package:flutter/foundation.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import '../models/user_profile.dart';
+import '../models/habit.dart';
 import 'storage_service.dart';
 
 /// Resultado tipado do login — Screens não precisam de try/catch.
@@ -12,7 +14,7 @@ class AuthResult {
   final UserProfile? profile;
   final String? errorMessage;
 
-  /// true = usuário nunca usou o app antes (exibe SignupScreen para customizar perfil)
+  /// true = usuário nunca teve perfil no Firebase (novo ou upgrade de offline)
   final bool isNewUser;
 
   const AuthResult._({
@@ -33,9 +35,9 @@ class AuthResult {
       AuthResult._(status: AuthResultStatus.cancelled);
 
   factory AuthResult.networkError() => AuthResult._(
-        status: AuthResultStatus.networkError,
-        errorMessage: 'Sem conexão. Tente novamente.',
-      );
+    status: AuthResultStatus.networkError,
+    errorMessage: 'Sem conexão. Tente novamente.',
+  );
 
   factory AuthResult.unknownError(String msg) =>
       AuthResult._(status: AuthResultStatus.unknownError, errorMessage: msg);
@@ -44,7 +46,6 @@ class AuthResult {
   bool get isCancelled => status == AuthResultStatus.cancelled;
 }
 
-/// Par interno: perfil + flag de novo usuário.
 class _FetchResult {
   final UserProfile profile;
   final bool isNew;
@@ -53,8 +54,8 @@ class _FetchResult {
 
 /// Orquestra google_sign_in + firebase_auth + Realtime Database.
 ///
-/// REGRA do projeto: único lugar que toca FirebaseAuth e GoogleSignIn.
-/// Nenhuma Screen chama essas libs diretamente.
+/// REGRA: único lugar que toca FirebaseAuth e GoogleSignIn.
+/// StorageService NÃO importa AuthService — dependência só em uma direção.
 class AuthService {
   AuthService._();
   static final AuthService instance = AuthService._();
@@ -64,17 +65,13 @@ class AuthService {
   final DatabaseReference _db = FirebaseDatabase.instance.ref();
 
   // ── Stream de estado ──────────────────────────────────────
-  /// Usado pelo StreamBuilder no main.dart.
   Stream<User?> get authStateChanges => _auth.authStateChanges();
-
   User? get currentUser => _auth.currentUser;
 
   // ── Login com Google ──────────────────────────────────────
   Future<AuthResult> signInWithGoogle() async {
     try {
       final googleAccount = await _googleSignIn.signIn();
-
-      // Usuário fechou o seletor — silencioso
       if (googleAccount == null) return AuthResult.cancelled();
 
       final googleAuth = await googleAccount.authentication;
@@ -86,11 +83,21 @@ class AuthService {
       final userCredential = await _auth.signInWithCredential(credential);
       final user = userCredential.user!;
 
-      // Busca ou cria o perfil unificado (gamificação + Firebase)
+      // 1. Busca ou cria o perfil no Firebase
       final fetchResult = await _fetchOrCreateProfile(user);
 
-      // Persiste localmente ANTES de retornar (evita race condition na HomeScreen)
+      // 2. Persiste perfil localmente ANTES de retornar
       await StorageService.instance.saveProfile(fetchResult.profile);
+
+      // 3. Baixa hábitos remotos e salva APENAS localmente.
+      //    Só para usuários retornando — novos não têm hábitos no banco ainda.
+      //    Usa saveAllHabitsLocal (sem re-sync para o Firebase — sem loop).
+      if (!fetchResult.isNew) {
+        final remoteHabits = await _fetchHabitsRemote(user.uid);
+        if (remoteHabits.isNotEmpty) {
+          await StorageService.instance.saveAllHabitsLocal(remoteHabits);
+        }
+      }
 
       return AuthResult.success(
         fetchResult.profile,
@@ -99,7 +106,8 @@ class AuthService {
     } on FirebaseAuthException catch (e) {
       if (e.code == 'network-request-failed') return AuthResult.networkError();
       return AuthResult.unknownError(e.message ?? 'Erro de autenticação.');
-    } catch (_) {
+    } catch (e) {
+      debugPrint('AuthService.signInWithGoogle error: $e');
       return AuthResult.unknownError('Algo deu errado. Tente novamente.');
     }
   }
@@ -107,14 +115,9 @@ class AuthService {
   // ── Logout ────────────────────────────────────────────────
   Future<void> signOut() async {
     await Future.wait([_auth.signOut(), _googleSignIn.signOut()]);
-    // NÃO limpa SharedPreferences — dados ficam para quando voltar
   }
 
-  // ── Sync do perfil completo ───────────────────────────────
-
-  /// Salva o perfil unificado:
-  ///   1. Local (SharedPreferences) via StorageService — acesso offline
-  ///   2. Remoto (Realtime Database) — backup em nuvem
+  // ── Salvar perfil (local + remoto) ────────────────────────
   Future<void> saveProfile(UserProfile profile) async {
     await StorageService.instance.saveProfile(profile);
     if (profile.isFirebaseUser) {
@@ -122,66 +125,110 @@ class AuthService {
     }
   }
 
-  /// Atualiza apenas a foto de perfil no banco.
   Future<void> updatePhotoUrl(String uid, String photoUrl) async {
     await _db.child('users/$uid/photoUrl').set(photoUrl);
   }
 
-  Future<void> _updateHistory(String uid) async {
-    await _db.child('history/$uid').update({
-      'last_login': DateTime.now().toUtc().toIso8601String(),
-    });
+  // ── Sincronização de hábitos ──────────────────────────────
+
+  /// Salva um hábito no Firebase RTDB.
+  /// Chamado por HomeScreen/HabitFormScreen APÓS saveHabitLocal.
+  Future<void> saveHabitRemote(Habit habit) async {
+    final user = _auth.currentUser;
+    if (user == null) return;
+    try {
+      await _db.child('habits/${user.uid}/${habit.id}').set(habit.toJson());
+    } catch (e) {
+      debugPrint('saveHabitRemote error: $e');
+    }
   }
 
-  // ── Lógica de novo vs. retornando ────────────────────────
+  /// Remove um hábito do Firebase RTDB.
+  Future<void> deleteHabitRemote(String habitId) async {
+    final user = _auth.currentUser;
+    if (user == null) return;
+    try {
+      await _db.child('habits/${user.uid}/$habitId').remove();
+    } catch (e) {
+      debugPrint('deleteHabitRemote error: $e');
+    }
+  }
+
+  // ── Privados ──────────────────────────────────────────────
+
+  Future<void> _updateHistory(String uid) async {
+    try {
+      await _db.child('history/$uid').update({
+        'last_login': DateTime.now().toUtc().toIso8601String(),
+      });
+    } catch (e) {
+      debugPrint('_updateHistory error: $e');
+    }
+  }
+
+  Future<List<Habit>> _fetchHabitsRemote(String uid) async {
+    try {
+      final snapshot = await _db.child('habits/$uid').get();
+      if (!snapshot.exists) return [];
+
+      final data = Map<String, dynamic>.from(snapshot.value as Map);
+      final habits = <Habit>[];
+      data.forEach((key, value) {
+        if (value is Map) {
+          try {
+            habits.add(Habit.fromJson(Map<String, dynamic>.from(value)));
+          } catch (e) {
+            debugPrint('Erro ao parsear hábito remoto $key: $e');
+          }
+        }
+      });
+      return habits;
+    } catch (e) {
+      debugPrint('_fetchHabitsRemote error: $e');
+      return [];
+    }
+  }
+
   Future<_FetchResult> _fetchOrCreateProfile(User user) async {
     final ref = _db.child('users/${user.uid}');
     final snapshot = await ref.get();
-
     await _updateHistory(user.uid);
 
     if (snapshot.exists) {
-      // Usuário retornando do Firebase — carrega o perfil completo
       final data = Map<String, dynamic>.from(snapshot.value as Map);
       return _FetchResult(
         UserProfile.fromFirebase(user.uid, data),
         isNew: false,
       );
-    } else {
-      // Novo usuário no Google. Já usava offline?
-      final currentLocal = StorageService.instance.loadProfile();
-
-      late final UserProfile profileToSave;
-      if (currentLocal != null) {
-        // Upgrade da conta local para conta na nuvem
-        profileToSave = currentLocal.copyWith(
-          uid: user.uid,
-          email: user.email ?? currentLocal.email,
-          photoUrl: currentLocal.photoUrl.isEmpty
-              ? (user.photoURL ?? '')
-              : currentLocal.photoUrl,
-        );
-      } else {
-        // Usuário completamente novo
-        profileToSave = UserProfile.newFromGoogle(
-          uid: user.uid,
-          displayName: user.displayName ?? 'Aventureiro',
-          email: user.email ?? '',
-          photoUrl: user.photoURL ?? '',
-        );
-      }
-
-      await ref.set(profileToSave.toFirebase());
-      await _db.child('history/${user.uid}').set({
-        'last_login': DateTime.now().toUtc().toIso8601String(),
-        'completed_tasks': 0,
-      });
-
-      // Se chegamos aqui, o perfil não existia no Firebase. 
-      // Tratamos como NOVO (isNew: true) para forçar o SignupScreen,
-      // mesmo que o usuário já tivesse um perfil local offline.
-      // Assim ele pode confirmar o apelido vindo do Google.
-      return _FetchResult(profileToSave, isNew: true);
     }
+
+    // Novo no Firebase — já usava offline?
+    final local = StorageService.instance.loadProfile();
+    late final UserProfile profileToSave;
+
+    if (local != null) {
+      profileToSave = local.copyWith(
+        uid: user.uid,
+        email: user.email ?? local.email,
+        photoUrl: local.photoUrl.isEmpty
+            ? (user.photoURL ?? '')
+            : local.photoUrl,
+      );
+    } else {
+      profileToSave = UserProfile.newFromGoogle(
+        uid: user.uid,
+        displayName: user.displayName ?? 'Aventureiro',
+        email: user.email ?? '',
+        photoUrl: user.photoURL ?? '',
+      );
+    }
+
+    await ref.set(profileToSave.toFirebase());
+    await _db.child('history/${user.uid}').set({
+      'last_login': DateTime.now().toUtc().toIso8601String(),
+      'completed_tasks': 0,
+    });
+
+    return _FetchResult(profileToSave, isNew: true);
   }
 }

@@ -36,7 +36,7 @@ class _HabitDetailScreenState extends State<HabitDetailScreen> {
       ),
     );
     if (editado != null) {
-      await StorageService.instance.saveHabit(editado);
+      await StorageService.instance.saveHabitLocal(editado);
       setState(() => _habit = editado);
     }
   }
@@ -47,21 +47,24 @@ class _HabitDetailScreenState extends State<HabitDetailScreen> {
       builder: (_) => AlertDialog(
         title: Text('Excluir "${_habit.nome}"?'),
         content: const Text(
-            'Todo o histórico e streak serão perdidos. Esta ação não pode ser desfeita.'),
+          'Todo o histórico e streak serão perdidos. Esta ação não pode ser desfeita.',
+        ),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text('Cancelar')),
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancelar'),
+          ),
           TextButton(
-              onPressed: () => Navigator.pop(context, true),
-              style: TextButton.styleFrom(foregroundColor: AppColors.error),
-              child: const Text('Excluir')),
+            onPressed: () => Navigator.pop(context, true),
+            style: TextButton.styleFrom(foregroundColor: AppColors.error),
+            child: const Text('Excluir'),
+          ),
         ],
       ),
     );
 
     if (confirm == true && mounted) {
-      await StorageService.instance.deleteHabit(_habit.id);
+      await StorageService.instance.deleteHabitLocal(_habit.id);
       if (mounted) Navigator.of(context).pop();
     }
   }
@@ -80,13 +83,12 @@ class _HabitDetailScreenState extends State<HabitDetailScreen> {
       appBar: AppBar(
         title: Text(_habit.nome, maxLines: 1, overflow: TextOverflow.ellipsis),
         actions: [
+          IconButton(icon: const Icon(Icons.edit_outlined), onPressed: _editar),
           IconButton(
-            icon: const Icon(Icons.edit_outlined),
-            onPressed: _editar,
-          ),
-          IconButton(
-            icon: const Icon(Icons.delete_outline_rounded,
-                color: AppColors.error),
+            icon: const Icon(
+              Icons.delete_outline_rounded,
+              color: AppColors.error,
+            ),
             onPressed: _deletar,
           ),
         ],
@@ -101,34 +103,41 @@ class _HabitDetailScreenState extends State<HabitDetailScreen> {
               child: Row(
                 children: [
                   Container(
-                    width: 56, height: 56,
+                    width: 56,
+                    height: 56,
                     decoration: BoxDecoration(
                       color: AppColors.surfaceCard,
                       borderRadius: BorderRadius.circular(14),
                     ),
                     alignment: Alignment.center,
-                    child: Text(_habit.icone,
-                        style: const TextStyle(fontSize: 28)),
+                    child: Text(
+                      _habit.icone,
+                      style: const TextStyle(fontSize: 28),
+                    ),
                   ),
                   const SizedBox(width: 14),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(_habit.nome,
-                            style: Theme.of(context).textTheme.titleLarge),
+                        Text(
+                          _habit.nome,
+                          style: Theme.of(context).textTheme.titleLarge,
+                        ),
                         const SizedBox(height: 4),
-                        Row(children: [
-                          _InfoChip(
-                            icon:  Icons.wb_twilight_outlined,
-                            label: _periodoLabel(_habit.periodo),
-                          ),
-                          const SizedBox(width: 8),
-                          _InfoChip(
-                            icon:  Icons.repeat_rounded,
-                            label: _frequenciaLabel(_habit.frequencia),
-                          ),
-                        ]),
+                        Row(
+                          children: [
+                            _InfoChip(
+                              icon: Icons.wb_twilight_outlined,
+                              label: _periodoLabel(_habit.periodo),
+                            ),
+                            const SizedBox(width: 8),
+                            _InfoChip(
+                              icon: Icons.repeat_rounded,
+                              label: _frequenciaLabel(_habit.frequencia),
+                            ),
+                          ],
+                        ),
                       ],
                     ),
                   ),
@@ -139,34 +148,36 @@ class _HabitDetailScreenState extends State<HabitDetailScreen> {
           const SizedBox(height: 12),
 
           // ── Streak + Estatísticas ─────────────────────────
-          Row(children: [
-            Expanded(
-              child: _StatCard(
-                icon:  Icons.local_fire_department_rounded,
-                color: AppColors.streak,
-                value: '${_habit.streakAtual}',
-                label: 'Dias seguidos',
+          Row(
+            children: [
+              Expanded(
+                child: _StatCard(
+                  icon: Icons.local_fire_department_rounded,
+                  color: AppColors.streak,
+                  value: '${_habit.streakAtual}',
+                  label: 'Dias seguidos',
+                ),
               ),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: _StatCard(
-                icon:  Icons.emoji_events_outlined,
-                color: AppColors.primary,
-                value: '${_habit.melhorStreak}',
-                label: 'Melhor streak',
+              const SizedBox(width: 10),
+              Expanded(
+                child: _StatCard(
+                  icon: Icons.emoji_events_outlined,
+                  color: AppColors.primary,
+                  value: '${_habit.melhorStreak}',
+                  label: 'Melhor streak',
+                ),
               ),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: _StatCard(
-                icon:  Icons.check_circle_outline_rounded,
-                color: AppColors.blueAccent,
-                value: '$totalDias',
-                label: 'Dias completos',
+              const SizedBox(width: 10),
+              Expanded(
+                child: _StatCard(
+                  icon: Icons.check_circle_outline_rounded,
+                  color: AppColors.blueAccent,
+                  value: '$totalDias',
+                  label: 'Dias completos',
+                ),
               ),
-            ),
-          ]),
+            ],
+          ),
           const SizedBox(height: 12),
 
           // ── Gráfico 7 dias ────────────────────────────────
@@ -179,8 +190,7 @@ class _HabitDetailScreenState extends State<HabitDetailScreen> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text('Últimos 7 dias',
-                          style: AppTextStyles.sectionLabel),
+                      Text('Últimos 7 dias', style: AppTextStyles.sectionLabel),
                       Text(
                         'Média ${(mediaSemana * 100).round()}%',
                         style: AppTextStyles.levelBadge,
@@ -204,15 +214,22 @@ class _HabitDetailScreenState extends State<HabitDetailScreen> {
                 children: [
                   Text('Mini tarefas', style: AppTextStyles.sectionLabel),
                   const SizedBox(height: 8),
-                  ..._habit.miniTarefas.map((s) => Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 4),
-                        child: Row(children: [
-                          const Icon(Icons.radio_button_unchecked,
-                              size: 16, color: AppColors.textSecondary),
+                  ..._habit.miniTarefas.map(
+                    (s) => Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 4),
+                      child: Row(
+                        children: [
+                          const Icon(
+                            Icons.radio_button_unchecked,
+                            size: 16,
+                            color: AppColors.textSecondary,
+                          ),
                           const SizedBox(width: 8),
                           Text(s.nome, style: AppTextStyles.subtaskLabel),
-                        ]),
-                      )),
+                        ],
+                      ),
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -237,34 +254,39 @@ class _HabitDetailScreenState extends State<HabitDetailScreen> {
                 style: AppTextStyles.habitName,
               ),
               subtitle: _habit.notificacaoAtiva
-                  ? Text('Todos os dias às ${_habit.notificacaoHora}',
-                      style: AppTextStyles.xpLabel)
+                  ? Text(
+                      'Todos os dias às ${_habit.notificacaoHora}',
+                      style: AppTextStyles.xpLabel,
+                    )
                   : null,
             ),
           ),
           const SizedBox(height: 12),
 
           // ── Botões ────────────────────────────────────────
-          Row(children: [
-            Expanded(
-              child: OutlinedButton.icon(
-                onPressed: _editar,
-                icon:  const Icon(Icons.edit_outlined),
-                label: const Text('Editar'),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: _editar,
+                  icon: const Icon(Icons.edit_outlined),
+                  label: const Text('Editar'),
+                ),
               ),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: OutlinedButton.icon(
-                onPressed: _deletar,
-                icon:  const Icon(Icons.delete_outline_rounded),
-                label: const Text('Excluir'),
-                style: OutlinedButton.styleFrom(
+              const SizedBox(width: 10),
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: _deletar,
+                  icon: const Icon(Icons.delete_outline_rounded),
+                  label: const Text('Excluir'),
+                  style: OutlinedButton.styleFrom(
                     foregroundColor: AppColors.error,
-                    side: const BorderSide(color: AppColors.error)),
+                    side: const BorderSide(color: AppColors.error),
+                  ),
+                ),
               ),
-            ),
-          ]),
+            ],
+          ),
           const SizedBox(height: 24),
         ],
       ),
@@ -273,25 +295,30 @@ class _HabitDetailScreenState extends State<HabitDetailScreen> {
 
   String _periodoLabel(String p) {
     switch (p) {
-      case 'tarde': return 'Tarde';
-      case 'noite': return 'Noite';
-      default:      return 'Manhã';
+      case 'tarde':
+        return 'Tarde';
+      case 'noite':
+        return 'Noite';
+      default:
+        return 'Manhã';
     }
   }
 
   String _frequenciaLabel(String f) {
     switch (f) {
-      case 'seg-sex': return 'Seg–Sex';
-      default:        return 'Diário';
+      case 'seg-sex':
+        return 'Seg–Sex';
+      default:
+        return 'Diário';
     }
   }
 }
 
 class _StatCard extends StatelessWidget {
   final IconData icon;
-  final Color    color;
-  final String   value;
-  final String   label;
+  final Color color;
+  final String value;
+  final String label;
 
   const _StatCard({
     required this.icon,
@@ -302,40 +329,45 @@ class _StatCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Card(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
-          child: Column(
-            children: [
-              Icon(icon, color: color, size: 22),
-              const SizedBox(height: 6),
-              Text(value,
-                  style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.w700,
-                      color: color)),
-              const SizedBox(height: 2),
-              Text(label,
-                  style: AppTextStyles.xpLabel,
-                  textAlign: TextAlign.center),
-            ],
+    child: Padding(
+      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+      child: Column(
+        children: [
+          Icon(icon, color: color, size: 22),
+          const SizedBox(height: 6),
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.w700,
+              color: color,
+            ),
           ),
-        ),
-      );
+          const SizedBox(height: 2),
+          Text(
+            label,
+            style: AppTextStyles.xpLabel,
+            textAlign: TextAlign.center,
+          ),
+        ],
+      ),
+    ),
+  );
 }
 
 class _InfoChip extends StatelessWidget {
   final IconData icon;
-  final String   label;
+  final String label;
 
   const _InfoChip({required this.icon, required this.label});
 
   @override
   Widget build(BuildContext context) => Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 12, color: AppColors.textSecondary),
-          const SizedBox(width: 3),
-          Text(label, style: AppTextStyles.xpLabel),
-        ],
-      );
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      Icon(icon, size: 12, color: AppColors.textSecondary),
+      const SizedBox(width: 3),
+      Text(label, style: AppTextStyles.xpLabel),
+    ],
+  );
 }

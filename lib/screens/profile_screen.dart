@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter_app_habitos/services/notification_service.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../core/theme/app_colors.dart';
@@ -204,9 +205,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     setState(() => _darkMode = value);
     final profile = widget.profile;
     if (profile == null) return;
-    await AuthService.instance.saveProfile(
-      profile.copyWith(darkMode: value),
-    );
+    await AuthService.instance.saveProfile(profile.copyWith(darkMode: value));
     if (!mounted) return;
     HabitFlowApp.of(context).setTheme(value);
     widget.onProfileUpdate?.call();
@@ -220,7 +219,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       builder: (_) => AlertDialog(
         title: const Text('Sair da conta?'),
         content: const Text(
-          'Suas conquistas e hábitos ficam salvos.\nBasta entrar novamente com o Google.',
+          'Cada conta Google tem seus próprios hábitos.\nAo sair, os dados locais serão limpos para proteger sua privacidade.',
         ),
         actions: [
           TextButton(
@@ -230,7 +229,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           TextButton(
             onPressed: () => Navigator.pop(context, true),
             style: TextButton.styleFrom(foregroundColor: AppColors.error),
-            child: const Text('Sair'),
+            child: const Text('Sair e limpar dados'),
           ),
         ],
       ),
@@ -239,9 +238,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
     if (confirmed != true || !mounted) return;
 
     setState(() => _signingOut = true);
+
+    // Limpa TUDO localmente para garantir isolamento total (v2.1)
+    await StorageService.instance.clearAll();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(kProfilePhotoKey);
+    await NotificationService.instance.cancelAll();
+
     await AuthService.instance.signOut();
     // StreamBuilder no main.dart detecta o logout e volta para LoginScreen.
-    // Não precisa de Navigator aqui.
   }
 
   // ── Reset local ───────────────────────────────────────────────────────────

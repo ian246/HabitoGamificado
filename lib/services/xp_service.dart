@@ -13,24 +13,23 @@ import 'notification_service.dart';
 /// dispararem as animações certas.
 /// ─────────────────────────────────────────────────────────────
 class XpResult {
-  final int            xpGanho;
-  final bool           subioDeNivel;
-  final int?           novoNivel;
-  final String?        nomeNivel;
-  final List<int>      novosMarcosDesbloqueados; // dias de streak
-  final List<String>   novasMolduras;            // nomes das molduras
+  final int xpGanho;
+  final bool subioDeNivel;
+  final int? novoNivel;
+  final String? nomeNivel;
+  final List<int> novosMarcosDesbloqueados; // dias de streak
+  final List<String> novasMolduras; // nomes das molduras
 
   const XpResult({
-    this.xpGanho                 = 0,
-    this.subioDeNivel            = false,
+    this.xpGanho = 0,
+    this.subioDeNivel = false,
     this.novoNivel,
     this.nomeNivel,
     this.novosMarcosDesbloqueados = const [],
-    this.novasMolduras            = const [],
+    this.novasMolduras = const [],
   });
 
-  bool get temEvento =>
-      xpGanho > 0 || subioDeNivel || novasMolduras.isNotEmpty;
+  bool get temEvento => xpGanho > 0 || subioDeNivel || novasMolduras.isNotEmpty;
 
   @override
   String toString() =>
@@ -55,11 +54,11 @@ class XpService {
   static final XpService instance = XpService._();
 
   // ── Tabela de XP ─────────────────────────────────────────
-  static const int _xpPorSubtarefa     = 5;
-  static const int _xpHabitoCompleto   = 20;
-  static const int _xpDiaPerfeito      = 50;
-  static const int _xpStreakSemanal    = 30;
-  static const int _xpNovaMoldura      = 100;
+  static const int _xpPorSubtarefa = 5;
+  static const int _xpHabitoCompleto = 20;
+  static const int _xpDiaPerfeito = 50;
+  static const int _xpStreakSemanal = 30;
+  static const int _xpNovaMoldura = 100;
 
   // ── Ação: marcar subtarefa ────────────────────────────────
 
@@ -81,7 +80,7 @@ class XpService {
         .feita;
 
     if (!subtaskFeita) {
-      await StorageService.instance.saveHabit(habitAtualizado);
+      await StorageService.instance.saveHabitLocal(habitAtualizado);
       return (habitAtualizado, const XpResult());
     }
 
@@ -95,7 +94,7 @@ class XpService {
     // Bônus se completou o hábito agora
     if (habitAtualizado.completoHoje && !eraCompleto) {
       xp += _xpHabitoCompleto;
-      
+
       // Ao completar hábito 100%:
       perfilAtual = perfilAtual.incrementarTrilha('dedicado', 1);
 
@@ -108,15 +107,17 @@ class XpService {
       final streakAtual = habitAtualizado.streakAtual;
       final streakSalvo = perfilAtual.trailProgress['constante'] ?? 0;
       if (streakAtual > streakSalvo) {
-        perfilAtual = perfilAtual.incrementarTrilha('constante',
-            streakAtual - streakSalvo);
+        perfilAtual = perfilAtual.incrementarTrilha(
+          'constante',
+          streakAtual - streakSalvo,
+        );
       }
     }
 
     // Aplica XP e verifica level-up
-    final nivelAntes   = perfilAtual.nivel;
-    final novoPerfil   = await _aplicarXp(perfilAtual, xp);
-    final subiu        = novoPerfil.nivel > nivelAntes;
+    final nivelAntes = perfilAtual.nivel;
+    final novoPerfil = await _aplicarXp(perfilAtual, xp);
+    final subiu = novoPerfil.nivel > nivelAntes;
 
     // Verifica conquistas se hábito completou
     XpResult resultado;
@@ -127,12 +128,12 @@ class XpService {
       );
       xp += conquResult.xpGanho;
       resultado = XpResult(
-        xpGanho:                 xp,
-        subioDeNivel:            subiu || conquResult.subioDeNivel,
-        novoNivel:               subiu ? novoPerfil.nivel : conquResult.novoNivel,
-        nomeNivel:               subiu ? novoPerfil.nomeDonivel : conquResult.nomeNivel,
+        xpGanho: xp,
+        subioDeNivel: subiu || conquResult.subioDeNivel,
+        novoNivel: subiu ? novoPerfil.nivel : conquResult.novoNivel,
+        nomeNivel: subiu ? novoPerfil.nomeDonivel : conquResult.nomeNivel,
         novosMarcosDesbloqueados: conquResult.novosMarcosDesbloqueados,
-        novasMolduras:           conquResult.novasMolduras,
+        novasMolduras: conquResult.novasMolduras,
       );
       // Notificações de recompensa
       for (final m in conquResult.novasMolduras) {
@@ -141,20 +142,21 @@ class XpService {
       if (subiu || conquResult.subioDeNivel) {
         final nivel = perfilFinal.nivel;
         await NotificationService.instance.showLevelUp(
-          nivel, perfilFinal.nomeDonivel,
+          nivel,
+          perfilFinal.nomeDonivel,
         );
       }
     } else {
       await AuthService.instance.saveProfile(novoPerfil);
       resultado = XpResult(
-        xpGanho:      xp,
+        xpGanho: xp,
         subioDeNivel: subiu,
-        novoNivel:    subiu ? novoPerfil.nivel : null,
-        nomeNivel:    subiu ? novoPerfil.nomeDonivel : null,
+        novoNivel: subiu ? novoPerfil.nivel : null,
+        nomeNivel: subiu ? novoPerfil.nomeDonivel : null,
       );
     }
 
-    await StorageService.instance.saveHabit(habitAtualizado);
+    await StorageService.instance.saveHabitLocal(habitAtualizado);
     return (habitAtualizado, resultado);
   }
 
@@ -165,18 +167,18 @@ class XpService {
     UserProfile profile,
     Habit habit,
   ) async {
-    final hoje  = HabitDateUtils.todayKey();
-    int   xp    = 0;
-    final novosMarcos  = <int>[];
+    final hoje = HabitDateUtils.todayKey();
+    int xp = 0;
+    final novosMarcos = <int>[];
     final novasMolduras = <String>[];
-    var   perfil = profile;
-    bool  subiu  = false;
+    var perfil = profile;
+    bool subiu = false;
 
     // ── Conquista do período do hábito ──────────────────────
     final catPeriodo = _categoriaParaPeriodo(habit.periodo);
     if (catPeriodo != null) {
-      final conquista = perfil.conquistas[catPeriodo] ??
-          Achievement(categoria: catPeriodo);
+      final conquista =
+          perfil.conquistas[catPeriodo] ?? Achievement(categoria: catPeriodo);
 
       // Verifica se TODOS os hábitos desse período foram concluídos hoje
       // (aqui usamos apenas o hábito atual como trigger — a verificação
@@ -192,7 +194,8 @@ class XpService {
     }
 
     // ── Conquista geral ─────────────────────────────────────
-    final conquGeral   = perfil.conquistas[AchievementCategory.geral] ??
+    final conquGeral =
+        perfil.conquistas[AchievementCategory.geral] ??
         Achievement(categoria: AchievementCategory.geral);
     final (novaGeral, marcosGeral) = conquGeral.registrarDia(hoje);
     perfil = perfil.atualizarConquista(AchievementCategory.geral, novaGeral);
@@ -211,8 +214,8 @@ class XpService {
     // Aplica XP das conquistas
     if (xp > 0) {
       final nivelAntes = perfil.nivel;
-      perfil           = await _aplicarXp(perfil, xp);
-      subiu            = perfil.nivel > nivelAntes;
+      perfil = await _aplicarXp(perfil, xp);
+      subiu = perfil.nivel > nivelAntes;
     } else {
       await AuthService.instance.saveProfile(perfil);
     }
@@ -220,12 +223,12 @@ class XpService {
     return (
       perfil,
       XpResult(
-        xpGanho:                 xp,
-        subioDeNivel:            subiu,
-        novoNivel:               subiu ? perfil.nivel : null,
-        nomeNivel:               subiu ? perfil.nomeDonivel : null,
+        xpGanho: xp,
+        subioDeNivel: subiu,
+        novoNivel: subiu ? perfil.nivel : null,
+        nomeNivel: subiu ? perfil.nomeDonivel : null,
         novosMarcosDesbloqueados: novosMarcos,
-        novasMolduras:           novasMolduras,
+        novasMolduras: novasMolduras,
       ),
     );
   }
@@ -241,7 +244,8 @@ class XpService {
     int xp = _xpDiaPerfeito;
 
     // Conquista "Perfeccionista"
-    final conquPerf = profile.conquistas[AchievementCategory.perfeito] ??
+    final conquPerf =
+        profile.conquistas[AchievementCategory.perfeito] ??
         Achievement(categoria: AchievementCategory.perfeito);
     final (novaConq, marcos) = conquPerf.registrarDia(hoje);
 
@@ -259,25 +263,26 @@ class XpService {
     }
 
     final nivelAntes = perfil.nivel;
-    perfil           = await _aplicarXp(perfil, xp);
-    final subiu      = perfil.nivel > nivelAntes;
+    perfil = await _aplicarXp(perfil, xp);
+    final subiu = perfil.nivel > nivelAntes;
 
     for (final m in novasMolduras) {
       await NotificationService.instance.showFrameUnlocked(m);
     }
     if (subiu) {
       await NotificationService.instance.showLevelUp(
-        perfil.nivel, perfil.nomeDonivel,
+        perfil.nivel,
+        perfil.nomeDonivel,
       );
     }
 
     return XpResult(
-      xpGanho:                 xp,
-      subioDeNivel:            subiu,
-      novoNivel:               subiu ? perfil.nivel : null,
-      nomeNivel:               subiu ? perfil.nomeDonivel : null,
+      xpGanho: xp,
+      subioDeNivel: subiu,
+      novoNivel: subiu ? perfil.nivel : null,
+      nomeNivel: subiu ? perfil.nomeDonivel : null,
       novosMarcosDesbloqueados: marcos,
-      novasMolduras:           novasMolduras,
+      novasMolduras: novasMolduras,
     );
   }
 
@@ -301,10 +306,14 @@ class XpService {
 
   AchievementCategory? _categoriaParaPeriodo(String periodo) {
     switch (periodo) {
-      case 'manha': return AchievementCategory.manha;
-      case 'tarde': return AchievementCategory.tarde;
-      case 'noite': return AchievementCategory.noite;
-      default:      return null;
+      case 'manha':
+        return AchievementCategory.manha;
+      case 'tarde':
+        return AchievementCategory.tarde;
+      case 'noite':
+        return AchievementCategory.noite;
+      default:
+        return null;
     }
   }
 

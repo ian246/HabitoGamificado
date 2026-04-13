@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_app_habitos/main.dart';
 import '../core/theme/app_colors.dart';
 import '../core/theme/app_text_styles.dart';
 import '../models/habit.dart';
 import '../models/user_profile.dart';
+import '../services/auth_service.dart';
 import '../services/storage_service.dart';
 import '../services/xp_service.dart';
 import '../services/notification_service.dart';
@@ -47,10 +47,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final habits = await StorageService.instance.loadAllHabits();
     var profile = StorageService.instance.loadProfile();
 
-    // ── Correção de race condition ────────────────────────────
-    // Após um Google sign-in recente, o AuthService pode ainda estar
-    // salvando o perfil quando o StreamBuilder já navega para cá.
-    // Tentamos até 5 × 300 ms (1,5 s) antes de desistir.
+    // Aguarda até 1,5 s para o perfil ser gravado após login Google
     if (profile == null) {
       for (int i = 0; i < 5; i++) {
         await Future.delayed(const Duration(milliseconds: 300));
@@ -67,18 +64,11 @@ class _HomeScreenState extends State<HomeScreen> {
       _loading = false;
     });
 
-    // Se o perfil carregado está incompleto, voltamos para a tela de login/cadastro
-    if (profile == null || !profile.setupComplete) {
-      // O StreamBuilder no main.dart deve processar isso automaticamente,
-      // mas forçamos um rebuild para garantir.
-      HabitFlowApp.appKey.currentState?.setState(() {});
-    }
-
-    // Re-agenda notificações ao abrir o app
     await NotificationService.instance.rescheduleAll(_habits);
   }
 
-  // ── Ações ─────────────────────────────────────────────────
+  // ── Ações ──────────────────────────────────────────────────
+
   Future<void> _onSubtaskToggle(Habit habit, String subtaskId) async {
     if (_profile == null) return;
 
@@ -91,19 +81,13 @@ class _HomeScreenState extends State<HomeScreen> {
     await _load();
     if (!mounted) return;
 
-    if (habitAtualizado.completoHoje) {
-      await _checkPerfectDay();
-    }
-
-    if (result.temEvento) {
-      _showXpEvent(result);
-    }
+    if (habitAtualizado.completoHoje) await _checkPerfectDay();
+    if (result.temEvento) _showXpEvent(result);
   }
 
   Future<void> _checkPerfectDay() async {
     if (_profile == null) return;
-    final todayDone = _habits.every((h) => !h.ativoHoje || h.completoHoje);
-    if (!todayDone) return;
+    if (!_habits.every((h) => !h.ativoHoje || h.completoHoje)) return;
 
     final result = await XpService.instance.onPerfectDay(_profile!);
     await _load();
@@ -112,8 +96,14 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _onDeleteHabit(String id) async {
-    await StorageService.instance.deleteHabit(id);
+    await StorageService.instance.deleteHabitLocal(id);
     await NotificationService.instance.cancelHabit(id);
+
+    final profile = StorageService.instance.loadProfile();
+    if (profile != null && profile.isFirebaseUser) {
+      await AuthService.instance.deleteHabitRemote(id);
+    }
+
     await _load();
   }
 
@@ -121,19 +111,27 @@ class _HomeScreenState extends State<HomeScreen> {
     final novo = await Navigator.of(
       context,
     ).push<Habit>(MaterialPageRoute(builder: (_) => const HabitFormScreen()));
-    if (novo != null) {
-      await StorageService.instance.saveHabit(novo);
-      try {
-        await NotificationService.instance.scheduleHabit(novo);
-      } catch (e) {
-        debugPrint('Erro ao agendar notificação (permissão): $e');
-      }
-      if (_profile != null) {
-        final result = await XpService.instance.onHabitCreated(_profile!);
-        if (result.temEvento && mounted) _showXpEvent(result);
-      }
-      await _load();
+    if (novo == null) return;
+
+    await StorageService.instance.saveHabitLocal(novo);
+
+    try {
+      await NotificationService.instance.scheduleHabit(novo);
+    } catch (e) {
+      debugPrint('Erro ao agendar notificação: $e');
     }
+
+    final profile = StorageService.instance.loadProfile();
+    if (profile != null && profile.isFirebaseUser) {
+      await AuthService.instance.saveHabitRemote(novo);
+    }
+
+    if (_profile != null) {
+      final result = await XpService.instance.onHabitCreated(_profile!);
+      if (result.temEvento && mounted) _showXpEvent(result);
+    }
+
+    await _load();
   }
 
   Future<void> _onEditHabit(Habit habit) async {
@@ -142,15 +140,22 @@ class _HomeScreenState extends State<HomeScreen> {
         builder: (_) => HabitFormScreen(habitParaEditar: habit),
       ),
     );
-    if (editado != null) {
-      await StorageService.instance.saveHabit(editado);
-      try {
-        await NotificationService.instance.scheduleHabit(editado);
-      } catch (e) {
-        debugPrint('Erro ao reagendar notificação (permissão): $e');
-      }
-      await _load();
+    if (editado == null) return;
+
+    await StorageService.instance.saveHabitLocal(editado);
+
+    try {
+      await NotificationService.instance.scheduleHabit(editado);
+    } catch (e) {
+      debugPrint('Erro ao reagendar notificação: $e');
     }
+
+    final profile = StorageService.instance.loadProfile();
+    if (profile != null && profile.isFirebaseUser) {
+      await AuthService.instance.saveHabitRemote(editado);
+    }
+
+    await _load();
   }
 
   Future<void> _onHabitTap(Habit habit) async {
@@ -182,14 +187,9 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   // ── Build ──────────────────────────────────────────────────
+
   @override
   Widget build(BuildContext context) {
-    // ── FIX: Enquanto carregando, exibe tela de loading completa.
-    // Isso evita o bug do AppBar que aparecia sem o XpHeader porque
-    // _profile era null durante o carregamento inicial. Separar
-    // os dois estados (loading / loaded) garante que o AppBar
-    // com a altura aumentada só seja construído quando os dados
-    // já estão disponíveis.
     if (_loading) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
@@ -257,7 +257,6 @@ class _HomeScreenState extends State<HomeScreen> {
 
   PreferredSizeWidget _buildAppBar() {
     const titles = ['HabitFlow', 'Progresso', 'Conquistas', 'Perfil'];
-
     final showXpHeader = _currentIndex == 0 && _profile != null;
 
     return AppBar(
@@ -275,14 +274,13 @@ class _HomeScreenState extends State<HomeScreen> {
               ],
             )
           : Text(titles[_currentIndex]),
-      toolbarHeight: showXpHeader
-          ? 180 // Espaço amplo para o XpHeader
-          : kToolbarHeight,
+      toolbarHeight: showXpHeader ? 180 : kToolbarHeight,
     );
   }
 }
 
-// ── Aba de lista de hábitos ─────────────────────────────────
+// ── Aba de lista ─────────────────────────────────────────────
+
 class _HabitListTab extends StatelessWidget {
   final List<Habit> habits;
   final Function(Habit, String) onSubtaskToggle;
@@ -315,9 +313,7 @@ class _HabitListTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (habits.isEmpty) {
-      return const _EmptyState();
-    }
+    if (habits.isEmpty) return const _EmptyState();
 
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 100),

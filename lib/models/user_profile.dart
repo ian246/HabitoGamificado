@@ -5,71 +5,41 @@ import 'achievement_trail.dart';
 /// ─────────────────────────────────────────────────────────────
 /// UserProfile — perfil do usuário (v2: Firebase Auth + local)
 ///
-/// O que mudou em relação à v1:
-///   + uid          → Firebase UID (vazio = perfil local legado)
-///   + email        → conta Google conectada
-///   + photoUrl     → URL remota (Google) ou caminho local
-///   + useLocalPhoto → true quando o usuário trocou a foto via image_picker
-///   + factory UserProfile.newFromGoogle  → novo usuário Google
-///   + factory UserProfile.fromFirebase   → carrega do Realtime Database
-///   + toFirebase()                       → serializa para o banco
-///
-/// O que NÃO mudou:
-///   - Todos os campos de gamificação (xpTotal, conquistas, trailProgress…)
-///   - Toda a lógica derivada (nivel, nomeDonivel, progressoNivel, activeTitle…)
-///   - copyWith, toJson, fromJson, fromJsonString (compatibilidade v1 total)
-///   - pinHash mantido (usuários legados que usam PIN continuam funcionando)
+/// Correções v2.1:
+///   • apelido agora é persistido no Firebase ('apelido' em toFirebase)
+///     e lido de volta em fromFirebase com fallback para split do displayName.
+///   • totalAchievementsCount agora inclui trilhas desbloqueadas, não apenas
+///     marcos por categoria — corrige stats.conquistas_total zerado no banco.
+///   • fromFirebase preserva o apelido customizado pelo usuário entre
+///     reinstalações e logins em novos dispositivos.
 /// ─────────────────────────────────────────────────────────────
 class UserProfile {
   // ── Campos de identidade (v2: Firebase) ──────────────────
-  /// Firebase UID. Vazio em perfis locais legados da v1.
   final String uid;
-
-  /// E-mail da conta Google. Vazio em perfis locais.
   final String email;
-
-  /// URL remota (foto do Google) OU caminho local (image_picker).
-  /// Use [effectivePhotoUrl] para resolver qual exibir.
   final String photoUrl;
-
-  /// true = [photoUrl] é um caminho local (usuário trocou a foto).
-  /// false = [photoUrl] é uma URL remota do Google.
   final bool useLocalPhoto;
 
   // ── Campos locais originais (v1 — não alterados) ─────────
   final String nome;
   final String apelido;
-  final String pinHash; // SHA-256 do PIN — vazio para usuários Google
+  final String pinHash;
   final int xpTotal;
   final bool darkMode;
   final bool notificacoesAtivas;
   final DateTime criadoEm;
   final DateTime ultimoAcesso;
-
-  /// Uma conquista por categoria
   final Map<AchievementCategory, Achievement> conquistas;
-
-  /// Datas em que todos os hábitos foram 100% concluídos
   final List<String> diasPerfeitos;
-
-  /// Progresso de cada trilha de conquista.
-  /// Chave = AchievementTrail.id   Valor = progresso atual (int)
   final Map<String, int> trailProgress;
-
-  /// Chave do título escolhido pelo usuário (formato: "trailId|tierIndex2").
-  /// Null = usar o fallback automático (maior tier conquistado).
   final String? selectedTitleKey;
-
-  /// Indica se o usuário já passou pela tela de boas-vindas/tutorial.
   final bool setupComplete;
 
   const UserProfile({
-    // v2
     this.uid = '',
     this.email = '',
     this.photoUrl = '',
     this.useLocalPhoto = false,
-    // v1 (sem alteração)
     required this.nome,
     required this.apelido,
     this.pinHash = '',
@@ -106,10 +76,8 @@ class UserProfile {
     );
   }
 
-  // ── Factories Firebase (v2 — novos) ───────────────────────
+  // ── Factories Firebase (v2) ───────────────────────────────
 
-  /// Cria perfil para novo usuário que logou com Google pela primeira vez.
-  /// Gamificação começa do zero; dados de identidade vêm do Google.
   factory UserProfile.newFromGoogle({
     required String uid,
     required String displayName,
@@ -135,17 +103,21 @@ class UserProfile {
 
   /// Reconstrói o perfil a partir do snapshot do Realtime Database.
   ///
-  /// Estratégia de merge:
-  ///   - Campos de gamificação (xpTotal, conquistas, trailProgress, diasPerfeitos)
-  ///     são lidos do banco se existirem, senão voltam ao zero.
-  ///   - conquistas e trailProgress ficam no banco em formato JSON para
-  ///     preservar todo o progresso entre reinstalações.
+  /// FIX v2.1: lê 'apelido' salvo no banco (campo novo).
+  /// Fallback: split do displayName para perfis antigos que não tinham o campo.
   factory UserProfile.fromFirebase(String uid, Map<String, dynamic> data) {
     final stats = data['stats'] as Map? ?? {};
     final prefs = data['preferences'] as Map? ?? {};
     final gamification = data['gamification'] as Map? ?? {};
 
-    // Reconstrói conquistas (se salvas no banco)
+    final displayName = data['displayName'] as String? ?? '';
+
+    // FIX: lê apelido do banco; fallback para split apenas em perfis antigos.
+    final apelido = (data['apelido'] as String?)?.isNotEmpty == true
+        ? data['apelido'] as String
+        : displayName.split(' ').first;
+
+    // Reconstrói conquistas
     final conquistasRaw = gamification['conquistas'] is Map
         ? Map<String, dynamic>.from(gamification['conquistas'] as Map)
         : <String, dynamic>{};
@@ -162,8 +134,8 @@ class UserProfile {
       uid: uid,
       email: data['email'] as String? ?? '',
       photoUrl: data['photoUrl'] as String? ?? '',
-      nome: data['displayName'] as String? ?? '',
-      apelido: (data['displayName'] as String? ?? '').split(' ').first,
+      nome: displayName,
+      apelido: apelido, // FIX: usa o apelido persistido
       xpTotal: (stats['xp'] as num?)?.toInt() ?? 0,
       darkMode: prefs['theme'] == 'dark',
       notificacoesAtivas: prefs['notifications'] as bool? ?? true,
@@ -185,21 +157,20 @@ class UserProfile {
 
   /// Serializa para gravar no Realtime Database.
   ///
-  /// Estrutura flat com 3 nós:
-  ///   stats        → dados de gamificação (level, xp, rank)
-  ///   preferences  → tema, notificações
-  ///   gamification → conquistas, trilhas, diasPerfeitos (preserva progresso)
+  /// FIX v2.1: inclui 'apelido' para preservar o nome customizado pelo usuário.
+  /// FIX v2.1: conquistas_total agora conta trilhas desbloqueadas corretamente.
   Map<String, dynamic> toFirebase() {
     return {
       'displayName': nome,
+      'apelido': apelido, // FIX: persiste o apelido customizado
       'email': email,
-      // Não sobe caminho local para o banco — só URL remota
       'photoUrl': useLocalPhoto ? '' : photoUrl,
       'criadoEm': criadoEm.toIso8601String(),
       'stats': {
         'level': nivel,
         'xp': xpTotal,
         'rank': _rankFromLevel(nivel),
+        // FIX: usa totalAchievementsCount que agora inclui trilhas
         'conquistas_total': totalAchievementsCount,
       },
       'preferences': {
@@ -207,7 +178,6 @@ class UserProfile {
         'notifications': notificacoesAtivas,
         'setupComplete': setupComplete,
       },
-      // Gamificação completa sobe para o banco — preserva tudo entre reinstalações
       'gamification': {
         'conquistas': conquistas.map((k, v) => MapEntry(k.valor, v.toJson())),
         'diasPerfeitos': diasPerfeitos,
@@ -274,21 +244,34 @@ class UserProfile {
 
   // ── Propriedade auxiliar (v2) ─────────────────────────────
 
-  /// True se o perfil está vinculado ao Firebase (UID real).
   bool get isFirebaseUser => uid.isNotEmpty;
-
-  /// Resolve qual URL/caminho exibir como foto de perfil.
-  /// Prioridade: foto local trocada pelo usuário > URL do Google > vazio.
   String get effectivePhotoUrl => photoUrl;
 
-  /// Soma o total de marcos desbloqueados em todas as categorias.
+  /// FIX v2.1: conta TANTO marcos de categoria QUANTO tiers de trilha desbloqueados.
+  ///
+  /// Antes: contava apenas marcosDesbloqueados nas categorias → sempre 0 quando
+  ///        o usuário só progrediu nas trilhas, sem hábitos completos por categoria.
+  ///
+  /// Agora: soma marcosDesbloqueados (categorias) + tiers de trilha alcançados.
   int get totalAchievementsCount {
-    int count = 0;
-    conquistas.values.forEach((a) => count += a.marcosDesbloqueados.length);
+    // Conquistas por categoria (Achievement.marcosDesbloqueados)
+    int count = conquistas.values.fold(
+      0,
+      (sum, a) => sum + a.marcosDesbloqueados.length,
+    );
+
+    // Trilhas: cada tier cujo threshold foi atingido conta como 1 conquista
+    for (final trail in AchievementTrails.all) {
+      final progress = trailProgress[trail.id] ?? 0;
+      for (final tier in trail.levels) {
+        if (progress >= tier.threshold) count++;
+      }
+    }
+
     return count;
   }
 
-  // ── copyWith (v1 + v2 campos adicionados) ────────────────
+  // ── copyWith ──────────────────────────────────────────────
   UserProfile copyWith({
     String? uid,
     String? email,
@@ -357,12 +340,10 @@ class UserProfile {
 
   // ── Serialização local (v1 — não alterada) ───────────────
   Map<String, dynamic> toJson() => {
-    // v2
     'uid': uid,
     'email': email,
     'photoUrl': photoUrl,
     'useLocalPhoto': useLocalPhoto,
-    // v1
     'nome': nome,
     'apelido': apelido,
     'pinHash': pinHash,
@@ -389,12 +370,10 @@ class UserProfile {
     }
 
     return UserProfile(
-      // v2 (com fallback para perfis antigos que não tinham esses campos)
       uid: json['uid'] as String? ?? '',
       email: json['email'] as String? ?? '',
       photoUrl: json['photoUrl'] as String? ?? '',
       useLocalPhoto: json['useLocalPhoto'] as bool? ?? false,
-      // v1 (não alterado)
       nome: json['nome'] as String,
       apelido: json['apelido'] as String,
       pinHash: json['pinHash'] as String? ?? '',
@@ -420,7 +399,6 @@ class UserProfile {
   String toString() =>
       'UserProfile(apelido: $apelido, nivel: $nivel, xp: $xpTotal, uid: $uid)';
 
-  // ── Helpers privados ──────────────────────────────────────
   static String _rankFromLevel(int nivel) {
     const ranks = [
       'Prata',
