@@ -95,7 +95,11 @@ class AuthService {
       if (!fetchResult.isNew) {
         final remoteHabits = await _fetchHabitsRemote(user.uid);
         if (remoteHabits.isNotEmpty) {
+          debugPrint('[Sync] Restaurando ${remoteHabits.length} hábitos da nuvem...');
           await StorageService.instance.saveAllHabitsLocal(remoteHabits);
+          debugPrint('[Sync] Restauração concluída.');
+        } else {
+          debugPrint('[Sync] Nenhum hábito remoto encontrado para este usuário.');
         }
       }
 
@@ -172,16 +176,20 @@ class AuthService {
       if (!snapshot.exists) return [];
 
       final data = Map<String, dynamic>.from(snapshot.value as Map);
+      debugPrint('[Sync] ${data.length} nós encontrados em users/$uid/habits');
+
       final habits = <Habit>[];
       data.forEach((key, value) {
         if (value is Map) {
           try {
             habits.add(Habit.fromJson(Map<String, dynamic>.from(value)));
           } catch (e) {
-            debugPrint('Erro ao parsear hábito remoto $key: $e');
+            debugPrint('[Sync] Erro crítico ao parsear hábito $key: $e');
+            debugPrint('[Sync] Dados problemáticos: $value');
           }
         }
       });
+      debugPrint('[Sync] Total de hábitos parseados com sucesso: ${habits.length}');
       return habits;
     } catch (e) {
       debugPrint('_fetchHabitsRemote error: $e');

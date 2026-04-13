@@ -196,18 +196,31 @@ class Habit {
     cor:              json['cor']              as String? ?? '#4A9E7C',
     periodo:          json['periodo']          as String? ?? 'manha',
     frequencia:       json['frequencia']       as String? ?? 'diario',
-    diasCustom:       List<int>.from(json['diasCustom'] as List? ?? []),
+    diasCustom:       _listFromFirebase(json['diasCustom'], (e) => e as int),
     notificacaoHora:  json['notificacaoHora']  as String? ?? '08:00',
     notificacaoAtiva: json['notificacaoAtiva'] as bool?   ?? true,
-    miniTarefas: (json['miniTarefas'] as List? ?? [])
-        .map((e) => Subtask.fromJson(e as Map<String, dynamic>))
-        .toList(),
+    miniTarefas: _listFromFirebase(json['miniTarefas'], (e) => Subtask.fromJson(Map<String, dynamic>.from(e as Map))),
     streakAtual:  json['streakAtual']  as int? ?? 0,
     melhorStreak: json['melhorStreak'] as int? ?? 0,
-    historicoConclusao: (json['historicoConclusao'] as Map<String, dynamic>? ?? {})
-        .map((k, v) => MapEntry(k, (v as num).toDouble())),
+    historicoConclusao: (json['historicoConclusao'] != null 
+        ? Map<Object?, Object?>.from(json['historicoConclusao'] as Map) 
+        : <Object?, Object?>{})
+        .map((k, v) => MapEntry(k.toString(), (v as num).toDouble())),
     criadoEm: DateTime.parse(json['criadoEm'] as String),
   );
+
+  /// Helper robusto para converter dados do Firebase (que podem vir como List ou Map) em List.
+  static List<T> _listFromFirebase<T>(dynamic data, T Function(dynamic) mapper) {
+    if (data == null) return [];
+    if (data is List) return data.map(mapper).toList();
+    if (data is Map) {
+      // Firebase RTDB às vezes manda arrays como Map com chaves "0", "1", etc.
+      final sortedKeys = data.keys.toList()
+        ..sort((a, b) => int.parse(a.toString()).compareTo(int.parse(b.toString())));
+      return sortedKeys.map((k) => mapper(data[k])).toList();
+    }
+    return [];
+  }
 
   /// Serializa para String (usado no SharedPreferences)
   String toJsonString() => jsonEncode(toJson());
