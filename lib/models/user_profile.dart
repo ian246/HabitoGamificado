@@ -1,6 +1,8 @@
 import 'dart:convert';
 import 'achievement.dart';
 import 'achievement_trail.dart';
+import '../core/theme/app_colors.dart';
+
 
 /// ─────────────────────────────────────────────────────────────
 /// UserProfile — perfil do usuário (v2: Firebase Auth + local)
@@ -191,45 +193,16 @@ class UserProfile {
 
   // ── Propriedades derivadas (v1 — não alteradas) ───────────
 
-  int get nivel {
-    const xpLevels = [0, 150, 350, 700, 1200, 2000, 3000, 5000, 8000];
-    int level = 1;
-    for (int i = 0; i < xpLevels.length; i++) {
-      if (xpTotal >= xpLevels[i]) level = i + 1;
-    }
-    return level.clamp(1, 9);
-  }
+  int get nivel => AppColors.themeForXp(xpTotal).level;
 
-  String get nomeDonivel {
-    const nomes = [
-      'Broto',
-      'Muda',
-      'Arbusto',
-      'Árvore',
-      'Floresta',
-      'Estrela',
-      'Oceano',
-      'Cosmos',
-      'Mestre',
-    ];
-    return nomes[nivel - 1];
-  }
+  String get nomeDonivel => AppColors.themeForXp(xpTotal).name;
 
-  int get xpProximoNivel {
-    const xpLevels = [150, 350, 700, 1200, 2000, 3000, 5000, 8000, 8000];
-    return xpLevels[nivel - 1];
-  }
+  int get xpProximoNivel => AppColors.themeForXp(xpTotal).xpForNext;
 
-  int get xpNivelAtual {
-    const xpLevels = [0, 150, 350, 700, 1200, 2000, 3000, 5000, 8000];
-    return xpLevels[nivel - 1];
-  }
+  int get xpNivelAtual => AppColors.themeForXp(xpTotal).xp;
 
-  double get progressoNivel {
-    final range = xpProximoNivel - xpNivelAtual;
-    if (range <= 0) return 1.0;
-    return ((xpTotal - xpNivelAtual) / range).clamp(0.0, 1.0);
-  }
+  double get progressoNivel => AppColors.themeForXp(xpTotal).progressTo(xpTotal);
+
 
   ({AchievementTrail trail, TrailLevel level})? get activeTitle {
     if (selectedTitleKey != null) {
@@ -400,17 +373,12 @@ class UserProfile {
       'UserProfile(apelido: $apelido, nivel: $nivel, xp: $xpTotal, uid: $uid)';
 
   static String _rankFromLevel(int nivel) {
-    const ranks = [
-      'Prata',
-      'Prata',
-      'Ouro',
-      'Ouro',
-      'Platina',
-      'Platina',
-      'Esmeralda',
-      'Diamante',
-      'Mestre',
-    ];
-    return ranks[(nivel - 1).clamp(0, 8)];
+    if (nivel >= 80) return 'Mestre';
+    if (nivel >= 50) return 'Diamante';
+    if (nivel >= 30) return 'Esmeralda';
+    if (nivel >= 15) return 'Platina';
+    if (nivel >= 5)  return 'Ouro';
+    return 'Prata';
   }
+
 }

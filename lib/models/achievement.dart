@@ -76,8 +76,8 @@ class Achievement {
     this.diasConcluidos       = const [],
   });
 
-  // ── Marcos do sistema ────────────────────────────────────
-  static const List<int> todos = [5, 10, 15, 30, 50, 75, 100, 150, 200, 300];
+  // ── Marcos do sistema — agora alinhados com os novos níveis (5=Ouro)
+  static const List<int> todos = [5, 15, 30, 50, 80];
 
   // ── Propriedades derivadas ───────────────────────────────
 
@@ -113,13 +113,13 @@ class Achievement {
 
   /// Nome da moldura atual baseado no maior marco desbloqueado
   String get nomeMoldura {
-    if (marcosDesbloqueados.isEmpty)           return 'Sem moldura';
+    if (marcosDesbloqueados.isEmpty) return 'Sem moldura';
     final maior = marcosDesbloqueados.reduce((a, b) => a > b ? a : b);
-    if (maior >= 300) return 'Mestre';
-    if (maior >= 200) return 'Diamante';
-    if (maior >= 150) return 'Esmeralda';
-    if (maior >= 75)  return 'Platina';
-    if (maior >= 30)  return 'Ouro';
+    if (maior >= 80) return 'Mestre';
+    if (maior >= 50) return 'Diamante';
+    if (maior >= 30) return 'Esmeralda';
+    if (maior >= 15) return 'Platina';
+    if (maior >= 5)  return 'Ouro';
     return 'Prata';
   }
 

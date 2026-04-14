@@ -22,9 +22,9 @@ abstract final class XpCalculator {
   static const int weeklyStreakBonus  = 30;
   static const int frameUnlockBonus  = 100;
 
-  // ── Marcos de conquista ────────────────────────────────────
-  /// Dias que desbloqueiam uma nova moldura
-  static const List<int> frameMilestones = [5, 10, 15, 30, 50, 75, 100, 150, 200, 300];
+  // ── Marcos de conquista — agora alinhados com nível de XP
+  /// Níveis que desbloqueiam uma nova moldura (visual)
+  static const List<int> frameMilestones = [5, 15, 30, 50, 80];
 
   // ── Cálculos de ganho ─────────────────────────────────────
 

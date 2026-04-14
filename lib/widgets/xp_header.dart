@@ -11,8 +11,8 @@ class XpHeader extends StatelessWidget {
 
   const XpHeader({super.key, required this.profile, this.onRefresh});
 
-  String _getFramePath(int streak) {
-    final currentFrame = AppColors.frameForDays(streak);
+  String _getFramePath(int level) {
+    final currentFrame = AppColors.frameForLevel(level);
     return 'assets/frames/${currentFrame.name.toLowerCase()}_frame.png';
   }
 
@@ -25,12 +25,12 @@ class XpHeader extends StatelessWidget {
     return 'assets/conquests/conquista_$tierName.png';
   }
 
-  (int days, String name) _getNextFrameTarget(int streak) {
-    if (streak < 30) return (30, 'Ouro');
-    if (streak < 75) return (75, 'Platina');
-    if (streak < 150) return (150, 'Esmeralda');
-    if (streak < 200) return (200, 'Diamante');
-    if (streak < 300) return (300, 'Mestre');
+  (int level, String name) _getNextRankTarget(int currentLevel) {
+    if (currentLevel < 5) return (5, 'Ouro');
+    if (currentLevel < 15) return (15, 'Platina');
+    if (currentLevel < 30) return (30, 'Esmeralda');
+    if (currentLevel < 50) return (50, 'Diamante');
+    if (currentLevel < 80) return (80, 'Mestre');
     return (-1, '');
   }
 
@@ -47,12 +47,8 @@ class XpHeader extends StatelessWidget {
     final theme = AppColors.themeForXp(profile.xpTotal);
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    final int streakAtual =
-        profile.conquistas[AchievementCategory.geral]?.streakAtual ?? 0;
-
-    final framePath = _getFramePath(streakAtual);
-    final (nextFrameDays, nextFrameName) = _getNextFrameTarget(streakAtual);
-    final diasFaltando = nextFrameDays > 0 ? nextFrameDays - streakAtual : 0;
+    final framePath = _getFramePath(profile.nivel);
+    final (nextRankLevel, nextRankName) = _getNextRankTarget(profile.nivel);
 
     // XP Calculations
     final xpNextTarget = theme.xpForNext;
@@ -128,11 +124,11 @@ class XpHeader extends StatelessWidget {
                 ],
 
                 // Linha 3: Próximo rank (se não for max)
-                if (nextFrameDays > 0) ...[
+                if (nextRankLevel > 0) ...[
                   const SizedBox(height: 4),
                   _NextRankRow(
-                    nextFrameName: nextFrameName,
-                    diasFaltando: diasFaltando,
+                    nextRankName: nextRankName,
+                    targetLevel: nextRankLevel,
                     isDark: isDark,
                   ),
                 ],
@@ -322,13 +318,13 @@ class _InlineTitleChip extends StatelessWidget {
 // ── LINHA DE PRÓXIMO RANK ─────────────────────────────────────────────────────
 
 class _NextRankRow extends StatelessWidget {
-  final String nextFrameName;
-  final int diasFaltando;
+  final String nextRankName;
+  final int targetLevel;
   final bool isDark;
 
   const _NextRankRow({
-    required this.nextFrameName,
-    required this.diasFaltando,
+    required this.nextRankName,
+    required this.targetLevel,
     required this.isDark,
   });
 
@@ -351,7 +347,7 @@ class _NextRankRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = _rankColor(nextFrameName);
+    final color = _rankColor(nextRankName);
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -373,7 +369,7 @@ class _NextRankRow extends StatelessWidget {
             border: Border.all(color: color.withOpacity(0.35), width: 1),
           ),
           child: Text(
-            '$nextFrameName · $diasFaltando dias',
+            '$nextRankName · Nível $targetLevel',
             style: TextStyle(
               fontSize: 10,
               fontWeight: FontWeight.w700,

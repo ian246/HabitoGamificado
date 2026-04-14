@@ -307,13 +307,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   // ── Helpers ───────────────────────────────────────────────────────────────
 
-  int get _maxStreak {
-    final p = widget.profile;
-    if (p == null || p.conquistas.isEmpty) return 0;
-    return p.conquistas.values
-        .map((a) => a.streakAtual)
-        .fold(0, (a, b) => a > b ? a : b);
-  }
 
   // ── Build ─────────────────────────────────────────────────────────────────
 
@@ -676,46 +669,45 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  // Jornada da Patente — idêntico ao original
+  // Jornada da Patente — agora baseada em NÍVEL
   Widget _buildRankJourney(BuildContext context, UserProfile profile) {
-    final maxStreak = _maxStreak;
-    final currentFrame = AppColors.frameForDays(maxStreak);
+    final currentLevel = profile.nivel;
+    final currentFrame = AppColors.frameForLevel(currentLevel);
 
-    int currentFrameDays = 0;
-    int nextFrameDays = 30;
+    int minLevel = 1;
+    int nextLevelThreshold = 5;
     FrameColors? nextFrame = AppColors.gold;
 
-    if (maxStreak < 30) {
-      currentFrameDays = 0;
-      nextFrameDays = 30;
+    if (currentLevel < 5) {
+      minLevel = 1;
+      nextLevelThreshold = 5;
       nextFrame = AppColors.gold;
-    } else if (maxStreak < 75) {
-      currentFrameDays = 30;
-      nextFrameDays = 75;
+    } else if (currentLevel < 15) {
+      minLevel = 5;
+      nextLevelThreshold = 15;
       nextFrame = AppColors.platinum;
-    } else if (maxStreak < 150) {
-      currentFrameDays = 75;
-      nextFrameDays = 150;
+    } else if (currentLevel < 30) {
+      minLevel = 15;
+      nextLevelThreshold = 30;
       nextFrame = AppColors.emerald;
-    } else if (maxStreak < 200) {
-      currentFrameDays = 150;
-      nextFrameDays = 200;
+    } else if (currentLevel < 50) {
+      minLevel = 30;
+      nextLevelThreshold = 50;
       nextFrame = AppColors.diamond;
-    } else if (maxStreak < 300) {
-      currentFrameDays = 200;
-      nextFrameDays = 300;
+    } else if (currentLevel < 80) {
+      minLevel = 50;
+      nextLevelThreshold = 80;
       nextFrame = AppColors.master;
     } else {
-      currentFrameDays = 300;
-      nextFrameDays = 300;
+      minLevel = 80;
+      nextLevelThreshold = 80;
       nextFrame = null;
     }
 
     double progress = 1.0;
     if (nextFrame != null) {
-      progress =
-          ((maxStreak - currentFrameDays) / (nextFrameDays - currentFrameDays))
-              .clamp(0.0, 1.0);
+      progress = ((currentLevel - minLevel) / (nextLevelThreshold - minLevel))
+          .clamp(0.0, 1.0);
     }
 
     return Card(
@@ -758,7 +750,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     child: Column(
                       children: [
                         Text(
-                          '$maxStreak dias',
+                          'Nível $currentLevel',
                           style: const TextStyle(
                             fontSize: 14,
                             fontWeight: FontWeight.w800,
@@ -782,7 +774,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         const SizedBox(height: 6),
                         if (nextFrame != null)
                           Text(
-                            'Faltam ${nextFrameDays - maxStreak}',
+                            'Faltam ${nextLevelThreshold - currentLevel} níveis',
                             style: AppTextStyles.xpLabel.copyWith(fontSize: 11),
                           ),
                       ],

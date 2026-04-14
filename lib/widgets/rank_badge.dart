@@ -23,18 +23,11 @@ class RankBadge extends StatelessWidget {
     this.showRankName = true,
   });
 
-  /// Dias de streak máximo entre todas as conquistas
-  int get _maxStreak {
-    if (profile.conquistas.isEmpty) return 0;
-    return profile.conquistas.values
-        .map((a) => a.streakAtual)
-        .fold(0, (a, b) => a > b ? a : b);
-  }
 
   @override
   Widget build(BuildContext context) {
-    final days = _maxStreak;
-    final frame = AppColors.frameForDays(days);
+    final level = profile.nivel;
+    final frame = AppColors.frameForLevel(level);
     final theme = AppColors.themeForXp(profile.xpTotal);
 
     return Row(
@@ -42,9 +35,9 @@ class RankBadge extends StatelessWidget {
       children: [
         // Avatar com anel da moldura
         AchievementFrame(
-          days: days,
+          level: level,
           size: size,
-          animate: days > 0,
+          animate: true,
           child: CircleAvatar(
             radius: size * 0.34,
             backgroundColor: theme.surface,
@@ -79,37 +72,28 @@ class RankBadge extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 2),
-              if (showRankName && days > 0)
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 2,
-                  ),
-                  decoration: BoxDecoration(
-                    color: frame.ring.withAlpha(25),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: frame.ring.withAlpha(80),
-                      width: 0.5,
-                    ),
-                  ),
-                  child: Text(
-                    '🏅 ${frame.name}',
-                    style: TextStyle(
-                      fontSize: 10,
-                      fontWeight: FontWeight.w600,
-                      color: frame.text,
-                    ),
-                  ),
-                )
-              else if (days == 0)
-                Text(
-                  'Sem patente ainda',
-                  style: TextStyle(
-                    fontSize: 10,
-                    color: AppColors.textSecondary,
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 8,
+                  vertical: 2,
+                ),
+                decoration: BoxDecoration(
+                  color: frame.ring.withAlpha(25),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: frame.ring.withAlpha(80),
+                    width: 0.5,
                   ),
                 ),
+                child: Text(
+                  '🏅 ${frame.name}',
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w600,
+                    color: frame.text,
+                  ),
+                ),
+              ),
             ],
           ),
         ],
@@ -129,20 +113,14 @@ class RankAvatarOnly extends StatelessWidget {
 
   const RankAvatarOnly({super.key, required this.profile, this.size = 40});
 
-  int get _maxStreak {
-    if (profile.conquistas.isEmpty) return 0;
-    return profile.conquistas.values
-        .map((a) => a.streakAtual)
-        .fold(0, (a, b) => a > b ? a : b);
-  }
 
   @override
   Widget build(BuildContext context) {
     final theme = AppColors.themeForXp(profile.xpTotal);
     return AchievementFrame(
-      days: _maxStreak,
+      level: profile.nivel,
       size: size,
-      animate: _maxStreak > 0,
+      animate: true,
       child: CircleAvatar(
         radius: size * 0.34,
         backgroundColor: theme.surface,
@@ -157,4 +135,5 @@ class RankAvatarOnly extends StatelessWidget {
       ),
     );
   }
+
 }

@@ -14,28 +14,28 @@ import '../theme/app_colors.dart';
 ///   )
 ///
 /// Estrutura visual por raridade:
-///   Prata    → 1 anel sólido
-///   Ouro     → 1 anel sólido + 1 tracejado
-///   Platina  → 2 anéis sólidos + tracejado giratório
-///   Esmeralda→ 3 anéis + tracejado + pontos ornamentais
-///   Diamante → 4 anéis + tracejado + pontos + reflexo
-///   Mestre   → 5 anéis + todos os efeitos + aura pulsante
+///   Prata    → 1 anel sólido (Nível 1+)
+///   Ouro     → 1 anel sólido + 1 tracejado (Nível 5+)
+///   Platina  → 2 anéis sólidos + tracejado giratório (Nível 15+)
+///   Esmeralda→ 3 anéis + tracejado + pontos ornamentais (Nível 30+)
+///   Diamante → 4 anéis + tracejado + pontos + reflexo (Nível 50+)
+///   Mestre   → 5 anéis + todos os efeitos + aura pulsante (Nível 80+)
 /// ─────────────────────────────────────────────────────────────
 
 // ─────────────────────────────────────────────────────────────
 // Widget conveniente que envolve o CustomPaint
 // ─────────────────────────────────────────────────────────────
 class AchievementFrame extends StatefulWidget {
-  final int    days;
+  final int level;
   final double size;
   final Widget child;
-  final bool   animate;
+  final bool animate;
 
   const AchievementFrame({
     super.key,
-    required this.days,
+    required this.level,
     required this.child,
-    this.size    = 80,
+    this.size = 80,
     this.animate = true,
   });
 
@@ -46,26 +46,26 @@ class AchievementFrame extends StatefulWidget {
 class _AchievementFrameState extends State<AchievementFrame>
     with SingleTickerProviderStateMixin {
   late AnimationController _ctrl;
-  late Animation<double>   _rotation;
-  late Animation<double>   _pulse;
+  late Animation<double> _rotation;
+  late Animation<double> _pulse;
 
   @override
   void initState() {
     super.initState();
     _ctrl = AnimationController(
-      vsync:    this,
+      vsync: this,
       duration: const Duration(seconds: 6),
     );
 
-    _rotation = Tween<double>(begin: 0, end: 2 * math.pi)
-        .animate(CurvedAnimation(parent: _ctrl, curve: Curves.linear));
+    _rotation = Tween<double>(
+      begin: 0,
+      end: 2 * math.pi,
+    ).animate(CurvedAnimation(parent: _ctrl, curve: Curves.linear));
 
-    _pulse = Tween<double>(begin: 0.85, end: 1.0).animate(
-      CurvedAnimation(
-        parent: _ctrl,
-        curve: const _PulseCurve(),
-      ),
-    );
+    _pulse = Tween<double>(
+      begin: 0.85,
+      end: 1.0,
+    ).animate(CurvedAnimation(parent: _ctrl, curve: const _PulseCurve()));
 
     if (widget.animate) _ctrl.repeat();
   }
@@ -78,19 +78,19 @@ class _AchievementFrameState extends State<AchievementFrame>
 
   @override
   Widget build(BuildContext context) {
-    final frame = AppColors.frameForDays(widget.days);
+    final frame = AppColors.frameForLevel(widget.level);
     return AnimatedBuilder(
       animation: _ctrl,
       builder: (_, __) => RepaintBoundary(
         child: SizedBox(
-          width:  widget.size,
+          width: widget.size,
           height: widget.size,
           child: CustomPaint(
             painter: _FramePainter(
-              frame:        frame,
-              days:         widget.days,
+              frame: frame,
+              level: widget.level,
               rotationAngle: _rotation.value,
-              pulseScale:   _pulse.value,
+              pulseScale: _pulse.value,
             ),
             child: Center(child: widget.child),
           ),
@@ -105,35 +105,35 @@ class _AchievementFrameState extends State<AchievementFrame>
 // ─────────────────────────────────────────────────────────────
 class _FramePainter extends CustomPainter {
   final FrameColors frame;
-  final int         days;
-  final double      rotationAngle;
-  final double      pulseScale;
+  final int level;
+  final double rotationAngle;
+  final double pulseScale;
 
   const _FramePainter({
     required this.frame,
-    required this.days,
+    required this.level,
     required this.rotationAngle,
     required this.pulseScale,
   });
 
   // Determina quantas "camadas" de anel mostrar
   int get _ringCount {
-    if (days >= 300) return 5; // Mestre
-    if (days >= 200) return 4; // Diamante
-    if (days >= 150) return 3; // Esmeralda
-    if (days >= 75)  return 2; // Platina
-    if (days >= 30)  return 1; // Ouro
-    return 0;                  // Prata — só o anel base
+    if (level >= 80) return 5; // Mestre
+    if (level >= 50) return 4; // Diamante
+    if (level >= 30) return 3; // Esmeralda
+    if (level >= 15) return 2; // Platina
+    if (level >= 5) return 1; // Ouro
+    return 0; // Prata — só o anel base
   }
 
-  bool get _hasSpinningDash => days >= 75;  // Platina em diante
-  bool get _hasOrnaments    => days >= 150; // Esmeralda em diante
-  bool get _hasPulse        => days >= 300; // Mestre
+  bool get _hasSpinningDash => level >= 15; // Platina em diante
+  bool get _hasOrnaments => level >= 30; // Esmeralda em diante
+  bool get _hasPulse => level >= 80; // Mestre
 
   @override
   void paint(Canvas canvas, Size size) {
     final center = Offset(size.width / 2, size.height / 2);
-    final maxR   = size.width / 2 - 2;
+    final maxR = size.width / 2 - 2;
 
     // ── Aura pulsante (Mestre) ───────────────────────────────
     if (_hasPulse) {
@@ -148,7 +148,9 @@ class _FramePainter extends CustomPainter {
       final r = maxR - (i * (maxR * 0.14));
       final opacity = 1.0 - (i * 0.15);
       _drawRing(
-        canvas, center, r,
+        canvas,
+        center,
+        r,
         frame.glow.withAlpha((opacity * 255).round()),
         strokeWidth: i == _ringCount ? 2.5 : 1.5,
       );
@@ -157,12 +159,13 @@ class _FramePainter extends CustomPainter {
     // ── Anel tracejado giratório (Platina em diante) ─────────
     if (_hasSpinningDash) {
       _drawDashedArc(
-        canvas, center,
+        canvas,
+        center,
         maxR - 8,
         frame.shine,
         startAngle: rotationAngle,
         dashLength: 8,
-        gapLength:  5,
+        gapLength: 5,
         strokeWidth: 2,
       );
     }
@@ -183,10 +186,10 @@ class _FramePainter extends CustomPainter {
     double strokeWidth = 3,
   }) {
     final paint = Paint()
-      ..color       = color
+      ..color = color
       ..strokeWidth = strokeWidth
-      ..style       = PaintingStyle.stroke
-      ..strokeCap   = StrokeCap.round;
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round;
 
     canvas.drawCircle(center, radius, paint);
   }
@@ -202,16 +205,16 @@ class _FramePainter extends CustomPainter {
     double strokeWidth = 2,
   }) {
     final paint = Paint()
-      ..color       = color
+      ..color = color
       ..strokeWidth = strokeWidth
-      ..style       = PaintingStyle.stroke
-      ..strokeCap   = StrokeCap.round;
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round;
 
     final circumference = 2 * math.pi * radius;
-    final dashAngle     = (dashLength / circumference) * 2 * math.pi;
-    final gapAngle      = (gapLength  / circumference) * 2 * math.pi;
-    final totalAngle    = dashAngle + gapAngle;
-    final steps         = (2 * math.pi / totalAngle).floor();
+    final dashAngle = (dashLength / circumference) * 2 * math.pi;
+    final gapAngle = (gapLength / circumference) * 2 * math.pi;
+    final totalAngle = dashAngle + gapAngle;
+    final steps = (2 * math.pi / totalAngle).floor();
 
     for (int i = 0; i < steps; i++) {
       final angle = startAngle + (i * totalAngle);
@@ -249,18 +252,18 @@ class _FramePainter extends CustomPainter {
 
   void _drawPulseAura(Canvas canvas, Offset center, double radius) {
     final paint = Paint()
-      ..color       = frame.ring.withAlpha(40)
+      ..color = frame.ring.withAlpha(40)
       ..strokeWidth = 8
-      ..style       = PaintingStyle.stroke;
+      ..style = PaintingStyle.stroke;
 
     canvas.drawCircle(center, radius, paint);
   }
 
   @override
   bool shouldRepaint(_FramePainter old) =>
-    old.rotationAngle != rotationAngle ||
-    old.pulseScale    != pulseScale    ||
-    old.days          != days;
+      old.rotationAngle != rotationAngle ||
+      old.pulseScale != pulseScale ||
+      old.level != level;
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -281,12 +284,12 @@ class FrameShowcase extends StatelessWidget {
   const FrameShowcase({super.key});
 
   static const _frames = [
-    (days: 5,   label: 'Prata'),
-    (days: 30,  label: 'Ouro'),
-    (days: 75,  label: 'Platina'),
-    (days: 150, label: 'Esmeralda'),
-    (days: 200, label: 'Diamante'),
-    (days: 300, label: 'Mestre'),
+    (level: 1, label: 'Prata'),
+    (level: 5, label: 'Ouro'),
+    (level: 15, label: 'Platina'),
+    (level: 30, label: 'Esmeralda'),
+    (level: 50, label: 'Diamante'),
+    (level: 80, label: 'Lendário'),
   ];
 
   @override
@@ -300,7 +303,7 @@ class FrameShowcase extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             AchievementFrame(
-              days: f.days,
+              level: f.level,
               size: 70,
               child: const Text('🏆', style: TextStyle(fontSize: 26)),
             ),

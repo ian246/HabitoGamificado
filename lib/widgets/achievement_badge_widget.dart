@@ -28,24 +28,24 @@ import '../models/achievement.dart';
 /// ─────────────────────────────────────────────────────────────
 class AchievementBadgeWidget extends StatelessWidget {
   final Achievement achievement;
-  final bool        useImageAssets; // true = PNG, false = emoji
-  final double      size;
-  final bool        showLabel;
-  final bool        showProgress;
+  final bool useImageAssets; // true = PNG, false = emoji
+  final double size;
+  final bool showLabel;
+  final bool showProgress;
 
   const AchievementBadgeWidget({
     super.key,
     required this.achievement,
     this.useImageAssets = true,
-    this.size           = 80,
-    this.showLabel      = true,
-    this.showProgress   = true,
+    this.size = 80,
+    this.showLabel = true,
+    this.showProgress = true,
   });
 
   @override
   Widget build(BuildContext context) {
-    final days    = achievement.diasMolduraAtual;
-    final locked  = days == 0;
+    final days = achievement.diasMolduraAtual;
+    final locked = days == 0;
 
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -56,24 +56,29 @@ class AchievementBadgeWidget extends StatelessWidget {
           children: [
             // Anel animado (CustomPainter)
             AchievementFrame(
-              days:    locked ? 0 : days,
-              size:    size,
+              level: locked ? 0 : days,
+              size: size,
               animate: !locked,
-              child:   _buildCenter(locked),
+              child: _buildCenter(locked),
             ),
 
             // Cadeado se bloqueado
             if (locked)
               Positioned(
-                bottom: 0, right: 0,
+                bottom: 0,
+                right: 0,
                 child: Container(
-                  width: 22, height: 22,
+                  width: 22,
+                  height: 22,
                   decoration: BoxDecoration(
                     color: AppColors.textSecondary.withAlpha(200),
                     shape: BoxShape.circle,
                   ),
-                  child: const Icon(Icons.lock_rounded,
-                      size: 12, color: Colors.white),
+                  child: const Icon(
+                    Icons.lock_rounded,
+                    size: 12,
+                    color: Colors.white,
+                  ),
                 ),
               ),
           ],
@@ -88,13 +93,11 @@ class AchievementBadgeWidget extends StatelessWidget {
           ),
           const SizedBox(height: 2),
           Text(
-            locked
-                ? 'Sem conquista'
-                : achievement.nomeMoldura,
+            locked ? 'Sem conquista' : achievement.nomeMoldura,
             style: AppTextStyles.frameDays.copyWith(
               color: locked
                   ? AppColors.textHint
-                  : AppColors.frameForDays(days).text,
+                  : AppColors.frameForLevel(days).text,
             ),
           ),
         ],
@@ -108,9 +111,9 @@ class AchievementBadgeWidget extends StatelessWidget {
                 ClipRRect(
                   borderRadius: BorderRadius.circular(6),
                   child: LinearProgressIndicator(
-                    value:           achievement.progressoParaProximo,
-                    minHeight:       4,
-                    color:           AppColors.frameForDays(days).ring,
+                    value: achievement.progressoParaProximo,
+                    minHeight: 4,
+                    color: AppColors.frameForLevel(days).ring,
                     backgroundColor: AppColors.surfaceCard,
                   ),
                 ),
@@ -152,7 +155,7 @@ class AchievementBadgeWidget extends StatelessWidget {
 
 /// Centro com imagem PNG do asset
 class _AssetBadgeCenter extends StatelessWidget {
-  final int    days;
+  final int days;
   final double size;
 
   const _AssetBadgeCenter({required this.days, required this.size});
@@ -161,9 +164,9 @@ class _AssetBadgeCenter extends StatelessWidget {
     if (days >= 300) return 'assets/frames/frame_mestre.png';
     if (days >= 200) return 'assets/frames/frame_diamante.png';
     if (days >= 150) return 'assets/frames/frame_esmeralda.png';
-    if (days >= 75)  return 'assets/frames/frame_platina.png';
-    if (days >= 30)  return 'assets/frames/frame_ouro.png';
-    return              'assets/frames/frame_prata.png';
+    if (days >= 75) return 'assets/frames/frame_platina.png';
+    if (days >= 30) return 'assets/frames/frame_ouro.png';
+    return 'assets/frames/frame_prata.png';
   }
 
   @override
@@ -171,14 +174,14 @@ class _AssetBadgeCenter extends StatelessWidget {
     return ClipOval(
       child: Image.asset(
         _assetPath,
-        width:  size * 0.58,
+        width: size * 0.58,
         height: size * 0.58,
-        fit:    BoxFit.cover,
+        fit: BoxFit.cover,
         errorBuilder: (_, __, ___) {
           // Fallback para emoji se o PNG não existir ainda
-          final frames = AppColors.frameForDays(days);
+          final frames = AppColors.frameForLevel(days);
           return Container(
-            width:  size * 0.58,
+            width: size * 0.58,
             height: size * 0.58,
             decoration: BoxDecoration(
               color: frames.shine,
@@ -199,8 +202,8 @@ class _AssetBadgeCenter extends StatelessWidget {
     if (days >= 300) return '👑';
     if (days >= 200) return '💎';
     if (days >= 150) return '💚';
-    if (days >= 75)  return '🔮';
-    if (days >= 30)  return '🌟';
+    if (days >= 75) return '🔮';
+    if (days >= 30) return '🌟';
     return '🌱';
   }
 }
@@ -208,7 +211,7 @@ class _AssetBadgeCenter extends StatelessWidget {
 /// Card de conquista completo para a tela de Conquistas
 class AchievementCard extends StatelessWidget {
   final Achievement achievement;
-  final bool        useImageAssets;
+  final bool useImageAssets;
 
   const AchievementCard({
     super.key,
@@ -226,11 +229,11 @@ class AchievementCard extends StatelessWidget {
         child: Row(
           children: [
             AchievementBadgeWidget(
-              achievement:    achievement,
+              achievement: achievement,
               useImageAssets: useImageAssets,
-              size:           64,
-              showLabel:      false,
-              showProgress:   false,
+              size: 64,
+              showLabel: false,
+              showProgress: false,
             ),
             const SizedBox(width: 14),
             Expanded(
@@ -239,11 +242,15 @@ class AchievementCard extends StatelessWidget {
                 children: [
                   Row(
                     children: [
-                      Text(achievement.categoria.icone,
-                          style: const TextStyle(fontSize: 14)),
+                      Text(
+                        achievement.categoria.icone,
+                        style: const TextStyle(fontSize: 14),
+                      ),
                       const SizedBox(width: 6),
-                      Text(achievement.categoria.label,
-                          style: AppTextStyles.habitName),
+                      Text(
+                        achievement.categoria.label,
+                        style: AppTextStyles.habitName,
+                      ),
                     ],
                   ),
                   const SizedBox(height: 3),
@@ -258,10 +265,11 @@ class AchievementCard extends StatelessWidget {
                     ClipRRect(
                       borderRadius: BorderRadius.circular(6),
                       child: LinearProgressIndicator(
-                        value:     achievement.progressoParaProximo,
+                        value: achievement.progressoParaProximo,
                         minHeight: 5,
-                        color:     AppColors.frameForDays(
-                            achievement.diasMolduraAtual).ring,
+                        color: AppColors.frameForLevel(
+                          achievement.diasMolduraAtual,
+                        ).ring,
                         backgroundColor: AppColors.surfaceCard,
                       ),
                     ),

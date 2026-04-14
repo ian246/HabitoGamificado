@@ -104,7 +104,17 @@ abstract final class AppColors {
     icon:  Color(0xFFA569BD),
   );
 
-  /// Retorna a FrameColors correta pelo número de dias
+  /// Determina a moldura visual baseada no nível de XP
+  static FrameColors frameForLevel(int level) {
+    if (level >= 80) return master;
+    if (level >= 50) return diamond;
+    if (level >= 30) return emerald;
+    if (level >= 15) return platinum;
+    if (level >= 5)  return gold;
+    return silver;
+  }
+
+  /// Determina a moldura visual baseada em dias de streak (para conquistas específicas)
   static FrameColors frameForDays(int days) {
     if (days >= 300) return master;
     if (days >= 200) return diamond;
@@ -118,15 +128,21 @@ abstract final class AppColors {
   // NÍVEIS — cor de tema por nível de XP
   // ─────────────────────────────────────────────────────────────
   static const List<LevelTheme> levelThemes = [
-    LevelTheme(level: 1, name: 'Broto',    xp: 0,    primary: Color(0xFFA8D5B5), surface: Color(0xFFF0F7F4)),
-    LevelTheme(level: 2, name: 'Muda',     xp: 150,  primary: Color(0xFF7EC8A0), surface: Color(0xFFEAF5EE)),
-    LevelTheme(level: 3, name: 'Arbusto',  xp: 350,  primary: Color(0xFF4A9E7C), surface: Color(0xFFE3F0EA)),
-    LevelTheme(level: 4, name: 'Árvore',   xp: 700,  primary: Color(0xFF2E7D6B), surface: Color(0xFFDCEDE5)),
-    LevelTheme(level: 5, name: 'Floresta', xp: 1200, primary: Color(0xFF1B5E50), surface: Color(0xFFD5EAE0)),
-    LevelTheme(level: 6, name: 'Estrela',  xp: 2000, primary: Color(0xFF3A6B9E), surface: Color(0xFFE8F0FA)),
-    LevelTheme(level: 7, name: 'Oceano',   xp: 3000, primary: Color(0xFF1A4B7A), surface: Color(0xFFDEEAF5)),
-    LevelTheme(level: 8, name: 'Cosmos',   xp: 5000, primary: Color(0xFF2D1B69), surface: Color(0xFFEAE5F5)),
-    LevelTheme(level: 9, name: 'Mestre',   xp: 8000, primary: Color(0xFF4A0E8F), surface: Color(0xFFF0E8FA)),
+    LevelTheme(level: 1,  name: 'Broto',     xp: 0,     primary: Color(0xFFA8D5B5), surface: Color(0xFFF0F7F4)),
+    LevelTheme(level: 2,  name: 'Muda',      xp: 150,   primary: Color(0xFF7EC8A0), surface: Color(0xFFEAF5EE)),
+    LevelTheme(level: 3,  name: 'Arbusto',   xp: 350,   primary: Color(0xFF4A9E7C), surface: Color(0xFFE3F0EA)),
+    LevelTheme(level: 4,  name: 'Árvore',    xp: 700,   primary: Color(0xFF2E7D6B), surface: Color(0xFFDCEDE5)),
+    LevelTheme(level: 5,  name: 'Floresta',  xp: 1200,  primary: Color(0xFF1B5E50), surface: Color(0xFFD5EAE0)),
+    LevelTheme(level: 6,  name: 'Estrela',   xp: 2000,  primary: Color(0xFF3A6B9E), surface: Color(0xFFE8F0FA)),
+    LevelTheme(level: 7,  name: 'Oceano',    xp: 3000,  primary: Color(0xFF1A4B7A), surface: Color(0xFFDEEAF5)),
+    LevelTheme(level: 8,  name: 'Cosmos',    xp: 5000,  primary: Color(0xFF2D1B69), surface: Color(0xFFEAE5F5)),
+    LevelTheme(level: 9,  name: 'Nebulosa',  xp: 8000,  primary: Color(0xFF4A0E8F), surface: Color(0xFFF0E8FA)),
+    LevelTheme(level: 10, name: 'Galáxia',   xp: 12000, primary: Color(0xFF5B0E8F), surface: Color(0xFFF5E8FA)),
+    LevelTheme(level: 15, name: 'Supernova', xp: 20000, primary: Color(0xFF7B1FA2), surface: Color(0xFFF3E5F5)),
+    LevelTheme(level: 20, name: 'Quasar',    xp: 35000, primary: Color(0xFF6A1B9A), surface: Color(0xFFEDE7F6)),
+    LevelTheme(level: 30, name: 'Zênite',    xp: 55000, primary: Color(0xFF4A148C), surface: Color(0xFFF3E5F5)),
+    LevelTheme(level: 50, name: 'Imortal',   xp: 100000,primary: Color(0xFF311B92), surface: Color(0xFFEDE7F6)),
+    LevelTheme(level: 80, name: 'Lendário',  xp: 250000,primary: Color(0xFF1A237E), surface: Color(0xFFE8EAF6)),
   ];
 
   /// Retorna o LevelTheme pelo XP atual do usuário
