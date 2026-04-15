@@ -219,7 +219,7 @@ abstract final class AchievementTrails {
     id: 'dedicado',
     name: 'O Dedicado',
     emoji: '✅',
-    description: 'Total de hábitos concluídos a 100%',
+    description: 'Dias com pelo menos um hábito concluído a 100%',
     levels: [
       TrailLevel(
         tier: AchievementTier.prata,
@@ -444,7 +444,7 @@ abstract final class AchievementTrails {
     id: 'colecionador',
     name: 'O Colecionador',
     emoji: '📚',
-    description: 'Hábitos diferentes criados no app',
+    description: 'Dias em que novos hábitos foram criados',
     levels: [
       TrailLevel(
         tier: AchievementTier.prata,
@@ -489,7 +489,7 @@ abstract final class AchievementTrails {
     id: 'guerreiro',
     name: 'O Guerreiro',
     emoji: '⚔️',
-    description: 'Total de mini tarefas concluídas',
+    description: 'Dias com pelo menos uma mini tarefa concluída',
     levels: [
       TrailLevel(
         tier: AchievementTier.prata,

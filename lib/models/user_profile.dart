@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'achievement.dart';
 import 'achievement_trail.dart';
+import 'daily_activity.dart';
 import '../core/theme/app_colors.dart';
 
 
@@ -34,6 +35,8 @@ class UserProfile {
   final Map<AchievementCategory, Achievement> conquistas;
   final List<String> diasPerfeitos;
   final Map<String, int> trailProgress;
+  final Map<String, DailyActivity> activityLog;        // date -> log
+  final DateTime? lastGlobalRewardTimestamp;           // absolute baseline
   final String? selectedTitleKey;
   final bool setupComplete;
 
@@ -53,6 +56,8 @@ class UserProfile {
     this.conquistas = const {},
     this.diasPerfeitos = const [],
     this.trailProgress = const {},
+    this.activityLog = const {},
+    this.lastGlobalRewardTimestamp,
     this.selectedTitleKey,
     this.setupComplete = false,
   });
@@ -75,6 +80,7 @@ class UserProfile {
           cat: Achievement(categoria: cat),
       },
       trailProgress: const {},
+      activityLog: const {},
     );
   }
 
@@ -100,6 +106,7 @@ class UserProfile {
           cat: Achievement(categoria: cat),
       },
       trailProgress: const {},
+      activityLog: const {},
     );
   }
 
@@ -152,6 +159,12 @@ class UserProfile {
       trailProgress: gamification['trailProgress'] is Map
           ? Map<String, int>.from(gamification['trailProgress'] as Map)
           : {},
+      activityLog: (gamification['activityLog'] as Map? ?? {}).map(
+        (k, v) => MapEntry(k.toString(), DailyActivity.fromJson(Map<String, dynamic>.from(v as Map))),
+      ),
+      lastGlobalRewardTimestamp: gamification['lastGlobalRewardTimestamp'] != null
+          ? DateTime.parse(gamification['lastGlobalRewardTimestamp'] as String)
+          : null,
       selectedTitleKey: gamification['selectedTitleKey'] as String?,
       setupComplete: prefs['setupComplete'] as bool? ?? true,
     );
@@ -184,6 +197,9 @@ class UserProfile {
         'conquistas': conquistas.map((k, v) => MapEntry(k.valor, v.toJson())),
         'diasPerfeitos': diasPerfeitos,
         'trailProgress': trailProgress,
+        'activityLog': activityLog.map((k, v) => MapEntry(k, v.toJson())),
+        if (lastGlobalRewardTimestamp != null)
+          'lastGlobalRewardTimestamp': lastGlobalRewardTimestamp!.toIso8601String(),
         if (selectedTitleKey != null) 'selectedTitleKey': selectedTitleKey,
       },
     };
@@ -261,6 +277,8 @@ class UserProfile {
     Map<AchievementCategory, Achievement>? conquistas,
     List<String>? diasPerfeitos,
     Map<String, int>? trailProgress,
+    Map<String, DailyActivity>? activityLog,
+    DateTime? lastGlobalRewardTimestamp,
     Object? selectedTitleKey = _sentinel,
     bool? setupComplete,
   }) => UserProfile(
@@ -279,6 +297,8 @@ class UserProfile {
     conquistas: conquistas ?? this.conquistas,
     diasPerfeitos: diasPerfeitos ?? this.diasPerfeitos,
     trailProgress: trailProgress ?? this.trailProgress,
+    activityLog: activityLog ?? this.activityLog,
+    lastGlobalRewardTimestamp: lastGlobalRewardTimestamp ?? this.lastGlobalRewardTimestamp,
     selectedTitleKey: selectedTitleKey == _sentinel
         ? this.selectedTitleKey
         : selectedTitleKey as String?,
@@ -289,10 +309,56 @@ class UserProfile {
 
   // ── Métodos de negócio (v1 — não alterados) ──────────────
 
-  UserProfile incrementarTrilha(String trailId, int quantidade) {
-    final novo = Map<String, int>.from(trailProgress);
-    novo[trailId] = (novo[trailId] ?? 0) + quantidade;
-    return copyWith(trailProgress: novo);
+  UserProfile incrementarTrilha(String trailId, int quantidade, {String? todayKey}) {
+    final novosProg = Map<String, int>.from(trailProgress);
+    
+    // Se temos uma chave de data, verificamos consistência via DailyActivityLog
+    if (todayKey != null) {
+      final logHoje = activityLog[todayKey] ?? DailyActivity(date: todayKey);
+      if (logHoje.isTrailActive(trailId)) {
+        return this; // Já ganhou progresso nesta trilha hoje
+      }
+      
+      final novosActive = Set<String>.from(logHoje.activeTrails)..add(trailId);
+      final novoLog = logHoje.copyWith(activeTrails: novosActive);
+      
+      final novosActivity = Map<String, DailyActivity>.from(activityLog);
+      novosActivity[todayKey] = _pruneActivityLog(novosActivity, novoLog);
+
+      novosProg[trailId] = (novosProg[trailId] ?? 0) + quantidade;
+      return copyWith(
+        trailProgress: novosProg,
+        activityLog: novosActivity,
+        lastGlobalRewardTimestamp: DateTime.now(),
+      );
+    }
+
+    novosProg[trailId] = (novosProg[trailId] ?? 0) + quantidade;
+    return copyWith(trailProgress: novosProg);
+  }
+
+  UserProfile registrarCriacaoHabito(String todayKey) {
+    final logHoje = activityLog[todayKey] ?? DailyActivity(date: todayKey);
+    final novoLog = logHoje.copyWith(habitsCreated: logHoje.habitsCreated + 1);
+    
+    final novosActivity = Map<String, DailyActivity>.from(activityLog);
+    novosActivity[todayKey] = _pruneActivityLog(novosActivity, novoLog);
+    
+    return copyWith(activityLog: novosActivity);
+  }
+
+  bool canCreateHabitToday(String todayKey) {
+    final count = activityLog[todayKey]?.habitsCreated ?? 0;
+    return count < 3;
+  }
+
+  /// Mantém o log de atividades leve (últimos 60 dias)
+  DailyActivity _pruneActivityLog(Map<String, DailyActivity> log, DailyActivity newEntry) {
+    if (log.length > 60) {
+      final keys = log.keys.toList()..sort();
+      log.remove(keys.first);
+    }
+    return newEntry;
   }
 
   UserProfile adicionarXp(int quantidade) =>
@@ -328,6 +394,9 @@ class UserProfile {
     'conquistas': conquistas.map((k, v) => MapEntry(k.valor, v.toJson())),
     'diasPerfeitos': diasPerfeitos,
     'trailProgress': trailProgress,
+    'activityLog': activityLog.map((k, v) => MapEntry(k, v.toJson())),
+    if (lastGlobalRewardTimestamp != null)
+      'lastGlobalRewardTimestamp': lastGlobalRewardTimestamp!.toIso8601String(),
     'setupComplete': setupComplete,
     if (selectedTitleKey != null) 'selectedTitleKey': selectedTitleKey,
   };
@@ -358,6 +427,12 @@ class UserProfile {
       conquistas: conquistas,
       diasPerfeitos: List<String>.from(json['diasPerfeitos'] as List? ?? []),
       trailProgress: Map<String, int>.from(json['trailProgress'] as Map? ?? {}),
+      activityLog: (json['activityLog'] as Map? ?? {}).map(
+        (k, v) => MapEntry(k.toString(), DailyActivity.fromJson(v as Map<String, dynamic>)),
+      ),
+      lastGlobalRewardTimestamp: json['lastGlobalRewardTimestamp'] != null
+          ? DateTime.parse(json['lastGlobalRewardTimestamp'] as String)
+          : null,
       selectedTitleKey: json['selectedTitleKey'] as String?,
       setupComplete: json['setupComplete'] as bool? ?? true,
     );

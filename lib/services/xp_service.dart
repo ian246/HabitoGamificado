@@ -1,3 +1,6 @@
+import 'package:flutter/foundation.dart';
+import 'package:flutter_app_habitos/models/daily_activity.dart';
+
 import '../models/habit.dart';
 import '../models/user_profile.dart';
 import '../models/achievement.dart';
@@ -60,6 +63,9 @@ class XpService {
   static const int _xpStreakSemanal = 30;
   static const int _xpNovaMoldura = 100;
 
+  // ── Monotonicidade (Anti-Exploit) ─────────────────────────
+  static const Duration _rewardGap = Duration(hours: 20);
+
   // ── Ação: marcar subtarefa ────────────────────────────────
 
   /// Chame quando o usuário marcar uma subtarefa.
@@ -70,47 +76,125 @@ class XpService {
     UserProfile profile,
   ) async {
     final eraCompleto = habit.completoHoje;
+    final today = HabitDateUtils.todayKey();
 
-    // Alterna a subtarefa
-    final habitAtualizado = habit.toggleSubtask(subtaskId);
+    // 0. Validação de Monotonicidade (Time Travel / Clock Shift)
+    final agora = DateTime.now();
+    if (profile.lastGlobalRewardTimestamp != null) {
+      final diff = agora.difference(profile.lastGlobalRewardTimestamp!);
+      // Se tentou premiar uma data futura e agora voltou pro passado, ou se o gap é muito curto
+      if (agora.isBefore(profile.lastGlobalRewardTimestamp!) ||
+          (diff < _rewardGap && !profile.activityLog.containsKey(today))) {
+        // Bloqueia ganho de XP se for tentativa de exploit de novo ciclo
+        return (habit, const XpResult());
+      }
+    }
 
-    // Se desmarcou, não ganha XP
-    final subtaskFeita = habitAtualizado.miniTarefas
-        .firstWhere((s) => s.id == subtaskId)
-        .feita;
+    // 1. Acesso ao log centralizado
+    final activity = profile.activityLog[today] ?? DailyActivity(date: today);
+    final subtaskIndex = habit.miniTarefas.indexWhere((s) => s.id == subtaskId);
+    if (subtaskIndex == -1) return (habit, const XpResult());
 
+    // ── 2. Alterna a subtarefa ──────────────────────────
+    var habitAtualizado = habit.toggleSubtask(subtaskId);
+    final subtask = habitAtualizado.miniTarefas[subtaskIndex];
+    final subtaskFeita = subtask.feita;
+    final jaGanhouXpSub = activity.isSubtaskRewarded(habit.id, subtaskIndex);
+
+    // PERSISTÊNCIA: Sempre salvar o hábito localmente para manter o estado da UI (checks/progress)
+    await StorageService.instance.saveHabitLocal(habitAtualizado);
+
+    // Se desmarcou, apenas retorna (já salvamos acima)
     if (!subtaskFeita) {
-      await StorageService.instance.saveHabitLocal(habitAtualizado);
+      if (profile.isFirebaseUser) {
+        await AuthService.instance.saveHabitRemote(habitAtualizado);
+      }
       return (habitAtualizado, const XpResult());
     }
 
-    // Ganhou XP pela subtarefa
-    int xp = _xpPorSubtarefa;
+    // Se Marcou:
+    // 3. Validação de "Cota Diária" (Itens novos não dão XP hoje)
+    final newItem = habit.isNewToday || subtask.isNewToday;
+    
+    int xp = (jaGanhouXpSub || newItem) ? 0 : _xpPorSubtarefa;
     var perfilAtual = profile;
 
-    // Ao marcar qualquer mini tarefa:
-    perfilAtual = perfilAtual.incrementarTrilha('guerreiro', 1);
+    if (!jaGanhouXpSub) {
+      // Registrar no LOG CENTRALIZADO
+      final novosSubKeys = Set<String>.from(activity.rewardedSubtaskKeys)
+        ..add('${habit.id}:$subtaskIndex');
 
-    // Bônus se completou o hábito agora
-    if (habitAtualizado.completoHoje && !eraCompleto) {
-      xp += _xpHabitoCompleto;
+      perfilAtual = perfilAtual.copyWith(
+        activityLog: {
+          ...perfilAtual.activityLog,
+          today: activity.copyWith(rewardedSubtaskKeys: novosSubKeys),
+        },
+        lastGlobalRewardTimestamp: agora,
+      );
 
-      // Ao completar hábito 100%:
-      perfilAtual = perfilAtual.incrementarTrilha('dedicado', 1);
-
-      // Ao fechar todas as subtarefas de um hábito da manhã:
-      if (habitAtualizado.periodo == 'manha') {
-        perfilAtual = perfilAtual.incrementarTrilha('madrugador', 1);
-      }
-
-      // Streak: atualizar 'constante' com o streakAtual do hábito
-      final streakAtual = habitAtualizado.streakAtual;
-      final streakSalvo = perfilAtual.trailProgress['constante'] ?? 0;
-      if (streakAtual > streakSalvo) {
+      // Trilha Guerreiro: só progride se não for item novo (Cota Diária)
+      if (!newItem) {
         perfilAtual = perfilAtual.incrementarTrilha(
-          'constante',
-          streakAtual - streakSalvo,
+          'guerreiro',
+          1,
+          todayKey: today,
         );
+      }
+    }
+
+    // 3. Bônus se completou o hábito agora
+    if (habitAtualizado.completoHoje && !eraCompleto) {
+      final activityUpdated = perfilAtual.activityLog[today]!;
+      final jaGanhouXpComp = activityUpdated.isHabitRewarded(habit.id);
+
+      if (!jaGanhouXpComp) {
+        // Só ganha XP de conclusão se o hábito não for novo hoje
+        if (!habit.isNewToday) {
+          xp += _xpHabitoCompleto;
+        }
+
+        // Registrar conclusão no LOG CENTRALIZADO (sempre registra para evitar duplo prêmio amanhã)
+        final novosHabComps = Set<String>.from(
+          activityUpdated.rewardedHabitCompletions,
+        )..add(habit.id);
+
+        perfilAtual = perfilAtual.copyWith(
+          activityLog: {
+            ...perfilAtual.activityLog,
+            today: activityUpdated.copyWith(
+              rewardedHabitCompletions: novosHabComps,
+            ),
+          },
+          lastGlobalRewardTimestamp: agora,
+        );
+
+        // Trilha Dedicado: só progride se não for item novo
+        if (!habit.isNewToday) {
+          perfilAtual = perfilAtual.incrementarTrilha(
+            'dedicado',
+            1,
+            todayKey: today,
+          );
+
+          // Ao fechar todas as subtarefas de um hábito da manhã:
+          if (habitAtualizado.periodo == 'manha') {
+            perfilAtual = perfilAtual.incrementarTrilha(
+              'madrugador',
+              1,
+              todayKey: today,
+            );
+          }
+        }
+
+        // Streak: atualizar 'constante'
+        final streakAtual = habitAtualizado.streakAtual;
+        final streakSalvo = perfilAtual.trailProgress['constante'] ?? 0;
+        if (streakAtual > streakSalvo) {
+          perfilAtual = perfilAtual.incrementarTrilha(
+            'constante',
+            streakAtual - streakSalvo,
+          );
+        }
       }
     }
 
@@ -155,8 +239,6 @@ class XpService {
         nomeNivel: subiu ? novoPerfil.nomeDonivel : null,
       );
     }
-
-    await StorageService.instance.saveHabitLocal(habitAtualizado);
 
     // Sincronização Remota (v2.1)
     if (novoPerfil.isFirebaseUser) {
@@ -260,7 +342,7 @@ class XpService {
         .registrarDiaPerfeito(hoje);
 
     // Ao registrar dia perfeito:
-    perfil = perfil.incrementarTrilha('perfeccionista', 1);
+    perfil = perfil.incrementarTrilha('perfeccionista', 1, todayKey: hoje);
 
     final novasMolduras = <String>[];
     if (marcos.isNotEmpty) {
@@ -296,9 +378,42 @@ class XpService {
 
   /// Chame quando o usuário criar um novo hábito
   Future<XpResult> onHabitCreated(UserProfile profile) async {
-    final perfil = profile.incrementarTrilha('colecionador', 1);
+    final today = HabitDateUtils.todayKey();
+
+    // Registra criação (Source of Truth)
+    var perfil = profile.registrarCriacaoHabito(today);
+
+    // Trilha Colecionador: Refinada para retenção (>= 7 dias)
+    perfil = await _atualizarTrilhaColecionador(perfil);
+
     await AuthService.instance.saveProfile(perfil);
     return const XpResult();
+  }
+
+  /// Calcula quantos hábitos existem há mais de 7 dias e atualiza a trilha Colecionador.
+  Future<UserProfile> _atualizarTrilhaColecionador(UserProfile profile) async {
+    try {
+      final habitos = await StorageService.instance.loadAllHabits();
+      final hoje = DateTime.now();
+
+      // Conta hábitos que "sobreviveram" pelo menos 7 dias (retenção real)
+      final sobreviventes = habitos.where((h) {
+        return hoje.difference(h.criadoEm).inDays >= 7;
+      }).length;
+
+      final progressAtual = profile.trailProgress['colecionador'] ?? 0;
+
+      // A trilha só progride (impede que deletar hábitos baixe o nível da conquista já ganha)
+      if (sobreviventes > progressAtual) {
+        return profile.incrementarTrilha(
+          'colecionador',
+          sobreviventes - progressAtual,
+        );
+      }
+    } catch (e) {
+      debugPrint('Erro ao atualizar trilha colecionador: $e');
+    }
+    return profile;
   }
 
   // ── Helpers privados ──────────────────────────────────────

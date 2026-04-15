@@ -1,4 +1,6 @@
 import 'dart:convert';
+import 'package:flutter_app_habitos/core/utils/date_utils.dart';
+
 import 'subtask.dart';
 
 /// ─────────────────────────────────────────────────────────────
@@ -13,20 +15,20 @@ import 'subtask.dart';
 ///   valor 0.5 = metade feita
 /// ─────────────────────────────────────────────────────────────
 class Habit {
-  final String              id;
-  final String              nome;
-  final String              icone;
-  final String              cor;           // hex ex: '#4A9E7C'
-  final String              periodo;       // 'manha' | 'tarde' | 'noite'
-  final String              frequencia;    // 'diario' | 'seg-sex' | 'custom'
-  final List<int>           diasCustom;    // [1,2,3,4,5] = seg a sex (weekday Dart)
-  final String              notificacaoHora; // 'HH:mm' ex: '07:30'
-  final bool                notificacaoAtiva;
-  final List<Subtask>       miniTarefas;
-  final int                 streakAtual;
-  final int                 melhorStreak;
+  final String id;
+  final String nome;
+  final String icone;
+  final String cor; // hex ex: '#4A9E7C'
+  final String periodo; // 'manha' | 'tarde' | 'noite'
+  final String frequencia; // 'diario' | 'seg-sex' | 'custom'
+  final List<int> diasCustom; // [1,2,3,4,5] = seg a sex (weekday Dart)
+  final String notificacaoHora; // 'HH:mm' ex: '07:30'
+  final bool notificacaoAtiva;
+  final List<Subtask> miniTarefas;
+  final int streakAtual;
+  final int melhorStreak;
   final Map<String, double> historicoConclusao;
-  final DateTime            criadoEm;
+  final DateTime criadoEm;
 
   const Habit({
     required this.id,
@@ -47,31 +49,31 @@ class Habit {
 
   // ── Factory para criar um hábito novo ─────────────────────
   factory Habit.create({
-    required String       id,
-    required String       nome,
-    required String       icone,
-    String                cor              = '#4A9E7C',
-    String                periodo          = 'manha',
-    String                frequencia       = 'diario',
-    List<int>             diasCustom       = const [],
-    String                notificacaoHora  = '08:00',
-    bool                  notificacaoAtiva = true,
+    required String id,
+    required String nome,
+    required String icone,
+    String cor = '#4A9E7C',
+    String periodo = 'manha',
+    String frequencia = 'diario',
+    List<int> diasCustom = const [],
+    String notificacaoHora = '08:00',
+    bool notificacaoAtiva = true,
     required List<Subtask> miniTarefas,
   }) => Habit(
-    id:                  id,
-    nome:                nome,
-    icone:               icone,
-    cor:                 cor,
-    periodo:             periodo,
-    frequencia:          frequencia,
-    diasCustom:          diasCustom,
-    notificacaoHora:     notificacaoHora,
-    notificacaoAtiva:    notificacaoAtiva,
-    miniTarefas:         miniTarefas,
-    streakAtual:         0,
-    melhorStreak:        0,
-    historicoConclusao:  {},
-    criadoEm:            DateTime.now(),
+    id: id,
+    nome: nome,
+    icone: icone,
+    cor: cor,
+    periodo: periodo,
+    frequencia: frequencia,
+    diasCustom: diasCustom,
+    notificacaoHora: notificacaoHora,
+    notificacaoAtiva: notificacaoAtiva,
+    miniTarefas: miniTarefas,
+    streakAtual: 0,
+    melhorStreak: 0,
+    historicoConclusao: {},
+    criadoEm: DateTime.now(),
   );
 
   // ── Propriedades derivadas ────────────────────────────────
@@ -91,6 +93,15 @@ class Habit {
   /// Verdadeiro se todas as subtarefas foram feitas
   bool get completoHoje => progressoHoje >= 1.0;
 
+  /// Verifica se o hábito foi criado HOJE (UTC). Usado para o bloqueio de XP.
+  bool get isNewToday {
+    final today = HabitDateUtils.todayKey();
+    final createdDate = criadoEm.toUtc().toIso8601String().split('T')[0];
+    return createdDate == today;
+  }
+
+  // ── Modificadores de Estado ──────────────────────────────
+
   /// Progresso histórico de uma data específica ('yyyy-MM-dd')
   double progressoNaData(String chave) => historicoConclusao[chave] ?? 0.0;
 
@@ -109,35 +120,35 @@ class Habit {
 
   // ── copyWith ──────────────────────────────────────────────
   Habit copyWith({
-    String?              id,
-    String?              nome,
-    String?              icone,
-    String?              cor,
-    String?              periodo,
-    String?              frequencia,
-    List<int>?           diasCustom,
-    String?              notificacaoHora,
-    bool?                notificacaoAtiva,
-    List<Subtask>?       miniTarefas,
-    int?                 streakAtual,
-    int?                 melhorStreak,
+    String? id,
+    String? nome,
+    String? icone,
+    String? cor,
+    String? periodo,
+    String? frequencia,
+    List<int>? diasCustom,
+    String? notificacaoHora,
+    bool? notificacaoAtiva,
+    List<Subtask>? miniTarefas,
+    int? streakAtual,
+    int? melhorStreak,
     Map<String, double>? historicoConclusao,
-    DateTime?            criadoEm,
+    DateTime? criadoEm,
   }) => Habit(
-    id:                  id                 ?? this.id,
-    nome:                nome               ?? this.nome,
-    icone:               icone              ?? this.icone,
-    cor:                 cor                ?? this.cor,
-    periodo:             periodo            ?? this.periodo,
-    frequencia:          frequencia         ?? this.frequencia,
-    diasCustom:          diasCustom         ?? this.diasCustom,
-    notificacaoHora:     notificacaoHora    ?? this.notificacaoHora,
-    notificacaoAtiva:    notificacaoAtiva   ?? this.notificacaoAtiva,
-    miniTarefas:         miniTarefas        ?? this.miniTarefas,
-    streakAtual:         streakAtual        ?? this.streakAtual,
-    melhorStreak:        melhorStreak       ?? this.melhorStreak,
-    historicoConclusao:  historicoConclusao ?? this.historicoConclusao,
-    criadoEm:            criadoEm           ?? this.criadoEm,
+    id: id ?? this.id,
+    nome: nome ?? this.nome,
+    icone: icone ?? this.icone,
+    cor: cor ?? this.cor,
+    periodo: periodo ?? this.periodo,
+    frequencia: frequencia ?? this.frequencia,
+    diasCustom: diasCustom ?? this.diasCustom,
+    notificacaoHora: notificacaoHora ?? this.notificacaoHora,
+    notificacaoAtiva: notificacaoAtiva ?? this.notificacaoAtiva,
+    miniTarefas: miniTarefas ?? this.miniTarefas,
+    streakAtual: streakAtual ?? this.streakAtual,
+    melhorStreak: melhorStreak ?? this.melhorStreak,
+    historicoConclusao: historicoConclusao ?? this.historicoConclusao,
+    criadoEm: criadoEm ?? this.criadoEm,
   );
 
   // ── Marcar/desmarcar subtarefa ────────────────────────────
@@ -159,64 +170,71 @@ class Habit {
 
   /// Retorna um novo Habit com streak atualizado
   Habit atualizarStreak(int novoStreak) => copyWith(
-    streakAtual:  novoStreak,
+    streakAtual: novoStreak,
     melhorStreak: novoStreak > melhorStreak ? novoStreak : melhorStreak,
   );
 
   /// Reseta as subtarefas para o novo dia (todas desmarcadas)
   Habit resetarParaHoje() {
-    final resetadas = miniTarefas
-        .map((s) => s.copyWith(feita: false))
-        .toList();
+    final resetadas = miniTarefas.map((s) => s.copyWith(feita: false)).toList();
     return copyWith(miniTarefas: resetadas);
   }
 
   // ── Serialização JSON ────────────────────────────────────
   Map<String, dynamic> toJson() => {
-    'id':                  id,
-    'nome':                nome,
-    'icone':               icone,
-    'cor':                 cor,
-    'periodo':             periodo,
-    'frequencia':          frequencia,
-    'diasCustom':          diasCustom,
-    'notificacaoHora':     notificacaoHora,
-    'notificacaoAtiva':    notificacaoAtiva,
-    'miniTarefas':         miniTarefas.map((s) => s.toJson()).toList(),
-    'streakAtual':         streakAtual,
-    'melhorStreak':        melhorStreak,
-    'historicoConclusao':  historicoConclusao,
-    'criadoEm':            criadoEm.toIso8601String(),
+    'id': id,
+    'nome': nome,
+    'icone': icone,
+    'cor': cor,
+    'periodo': periodo,
+    'frequencia': frequencia,
+    'diasCustom': diasCustom,
+    'notificacaoHora': notificacaoHora,
+    'notificacaoAtiva': notificacaoAtiva,
+    'miniTarefas': miniTarefas.map((s) => s.toJson()).toList(),
+    'streakAtual': streakAtual,
+    'melhorStreak': melhorStreak,
+    'historicoConclusao': historicoConclusao,
+    'criadoEm': criadoEm.toIso8601String(),
   };
 
   factory Habit.fromJson(Map<String, dynamic> json) => Habit(
-    id:               json['id']               as String,
-    nome:             json['nome']             as String,
-    icone:            json['icone']            as String,
-    cor:              json['cor']              as String? ?? '#4A9E7C',
-    periodo:          json['periodo']          as String? ?? 'manha',
-    frequencia:       json['frequencia']       as String? ?? 'diario',
-    diasCustom:       _listFromFirebase(json['diasCustom'], (e) => e as int),
-    notificacaoHora:  json['notificacaoHora']  as String? ?? '08:00',
-    notificacaoAtiva: json['notificacaoAtiva'] as bool?   ?? true,
-    miniTarefas: _listFromFirebase(json['miniTarefas'], (e) => Subtask.fromJson(Map<String, dynamic>.from(e as Map))),
-    streakAtual:  json['streakAtual']  as int? ?? 0,
+    id: json['id'] as String,
+    nome: json['nome'] as String,
+    icone: json['icone'] as String,
+    cor: json['cor'] as String? ?? '#4A9E7C',
+    periodo: json['periodo'] as String? ?? 'manha',
+    frequencia: json['frequencia'] as String? ?? 'diario',
+    diasCustom: _listFromFirebase(json['diasCustom'], (e) => e as int),
+    notificacaoHora: json['notificacaoHora'] as String? ?? '08:00',
+    notificacaoAtiva: json['notificacaoAtiva'] as bool? ?? true,
+    miniTarefas: _listFromFirebase(
+      json['miniTarefas'],
+      (e) => Subtask.fromJson(Map<String, dynamic>.from(e as Map)),
+    ),
+    streakAtual: json['streakAtual'] as int? ?? 0,
     melhorStreak: json['melhorStreak'] as int? ?? 0,
-    historicoConclusao: (json['historicoConclusao'] != null 
-        ? Map<Object?, Object?>.from(json['historicoConclusao'] as Map) 
-        : <Object?, Object?>{})
-        .map((k, v) => MapEntry(k.toString(), (v as num).toDouble())),
+    historicoConclusao:
+        (json['historicoConclusao'] != null
+                ? Map<Object?, Object?>.from(json['historicoConclusao'] as Map)
+                : <Object?, Object?>{})
+            .map((k, v) => MapEntry(k.toString(), (v as num).toDouble())),
     criadoEm: DateTime.parse(json['criadoEm'] as String),
   );
 
   /// Helper robusto para converter dados do Firebase (que podem vir como List ou Map) em List.
-  static List<T> _listFromFirebase<T>(dynamic data, T Function(dynamic) mapper) {
+  static List<T> _listFromFirebase<T>(
+    dynamic data,
+    T Function(dynamic) mapper,
+  ) {
     if (data == null) return [];
     if (data is List) return data.map(mapper).toList();
     if (data is Map) {
       // Firebase RTDB às vezes manda arrays como Map com chaves "0", "1", etc.
       final sortedKeys = data.keys.toList()
-        ..sort((a, b) => int.parse(a.toString()).compareTo(int.parse(b.toString())));
+        ..sort(
+          (a, b) => int.parse(a.toString()).compareTo(int.parse(b.toString())),
+        );
       return sortedKeys.map((k) => mapper(data[k])).toList();
     }
     return [];

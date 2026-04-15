@@ -17,12 +17,23 @@ abstract final class HabitDateUtils {
     return '$y-$m-$d';
   }
 
-  /// Chave do dia atual
-  static String todayKey() => toKey(DateTime.now());
+  /// Chave do dia atual (UTC-based para estabilidade anti-cheat)
+  static String todayKey() => DateTime.now().toUtc().toIso8601String().split('T')[0];
 
   /// Chave de ontem
   static String yesterdayKey() =>
-      toKey(DateTime.now().subtract(const Duration(days: 1)));
+      toKey(DateTime.now().toUtc().subtract(const Duration(days: 1)));
+
+  /// Limpa chaves antigas de um mapa (mantém apenas as últimas N)
+  /// Útil para não deixar o histórico de recompensas crescer infinitamente.
+  static void pruneOldKeys(Map<String, dynamic> map, int limit) {
+    if (map.length <= limit) return;
+    final keys = map.keys.toList()..sort();
+    final toRemove = keys.sublist(0, keys.length - limit);
+    for (final k in toRemove) {
+      map.remove(k);
+    }
+  }
 
   /// Converte chave ISO de volta para DateTime
   static DateTime fromKey(String key) => DateTime.parse(key);

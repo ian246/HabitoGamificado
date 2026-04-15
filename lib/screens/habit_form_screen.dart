@@ -4,6 +4,9 @@ import '../core/theme/app_colors.dart';
 import '../core/theme/app_text_styles.dart';
 import '../models/habit.dart';
 import '../models/subtask.dart';
+import '../services/storage_service.dart';
+import '../core/utils/date_utils.dart';
+import '../core/theme/app_text_styles.dart';
 
 class HabitFormScreen extends StatefulWidget {
   final Habit? habitParaEditar;
@@ -95,13 +98,30 @@ class _HabitFormScreenState extends State<HabitFormScreen> {
   void _salvar() {
     if (!_formKey.currentState!.validate()) return;
 
-    final subtarefas = _subtaskCtrls
-        .where((c) => c.text.trim().isNotEmpty)
-        .map((c) => Subtask(
-              id:   _uuid.v4(),
-              nome: c.text.trim(),
-            ))
-        .toList();
+    final hOrig = widget.habitParaEditar;
+    final subtarefas = <Subtask>[];
+
+    for (var i = 0; i < _subtaskCtrls.length; i++) {
+      final text = _subtaskCtrls[i].text.trim();
+      if (text.isEmpty) continue;
+
+      // Se estamos editando, tenta encontrar a subtarefa original pelo índice ou nome
+      // para preservar ID, estado 'feita' e 'criadoEm'.
+      Subtask? original;
+      if (hOrig != null && i < hOrig.miniTarefas.length) {
+        original = hOrig.miniTarefas[i];
+      }
+
+      if (original != null && original.nome == text) {
+        subtarefas.add(original);
+      } else {
+        // Se mudou o nome ou é nova, cria uma nova subtarefa
+        subtarefas.add(Subtask(
+          id: _uuid.v4(),
+          nome: text,
+        ));
+      }
+    }
 
     if (subtarefas.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -126,6 +146,16 @@ class _HabitFormScreenState extends State<HabitFormScreen> {
         miniTarefas:     subtarefas,
       );
     } else {
+      // Regra de Negócio: Limite de criação diária (Anti-Spam)
+      final profile = StorageService.instance.loadProfile();
+      if (profile != null) {
+        final today = HabitDateUtils.todayKey();
+        if (!profile.canCreateHabitToday(today)) {
+          _showLimitReachedDialog();
+          return;
+        }
+      }
+
       habit = Habit.create(
         id:              _uuid.v4(),
         nome:            _nomeCtrl.text.trim(),
@@ -140,6 +170,32 @@ class _HabitFormScreenState extends State<HabitFormScreen> {
     }
 
     Navigator.of(context).pop(habit);
+  }
+
+  void _showLimitReachedDialog() {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Row(
+          children: [
+            Icon(Icons.lock_outline_rounded, color: AppColors.primary),
+            SizedBox(width: 10),
+            Text('Limite Diário'),
+          ],
+        ),
+        content: const Text(
+          'Você atingiu o limite de 3 novos hábitos por dia.\n\nFoque em manter a consistência com os hábitos atuais antes de adicionar mais! 🔥',
+          style: TextStyle(fontSize: 15),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Entendido', style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
