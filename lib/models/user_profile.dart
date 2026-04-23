@@ -143,6 +143,7 @@ class UserProfile {
       uid: uid,
       email: data['email'] as String? ?? '',
       photoUrl: data['photoUrl'] as String? ?? '',
+      useLocalPhoto: !(data['photoUrl'] as String? ?? '').startsWith('http'),
       nome: displayName,
       apelido: apelido, // FIX: usa o apelido persistido
       xpTotal: (stats['xp'] as num?)?.toInt() ?? 0,
@@ -179,7 +180,7 @@ class UserProfile {
       'displayName': nome,
       'apelido': apelido, // FIX: persiste o apelido customizado
       'email': email,
-      'photoUrl': useLocalPhoto ? '' : photoUrl,
+      'photoUrl': photoUrl,
       'criadoEm': criadoEm.toIso8601String(),
       'stats': {
         'level': nivel,

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_app_habitos/services/notification_service.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:path_provider/path_provider.dart';
 import '../core/theme/app_colors.dart';
 import '../core/theme/app_text_styles.dart';
 import '../models/achievement_trail.dart';
@@ -149,22 +150,28 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
     if (picked == null) return;
 
+    // ── SOLUÇÃO LOCAL PERMANENTE ───────────────────────────────────────────
+    // Copia a foto do cache temporário para a pasta de documentos do app
+    final appDir = await getApplicationDocumentsDirectory();
+    final fileName = 'profile_${DateTime.now().millisecondsSinceEpoch}.jpg';
+    final permanentPath = '${appDir.path}/$fileName';
+    
+    // Copia o arquivo físico
+    await File(picked.path).copy(permanentPath);
+
     // Salva localmente (SharedPreferences — compatibilidade v1)
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(kProfilePhotoKey, picked.path);
-    setState(() => _photoPath = picked.path);
+    await prefs.setString(kProfilePhotoKey, permanentPath);
+    setState(() => _photoPath = permanentPath);
 
-    // Atualiza o perfil com o novo caminho e flag de foto local
+    // Atualiza o perfil com o novo caminho permanente e flag de foto local
     final profile = widget.profile;
     if (profile != null) {
       final updated = profile.copyWith(
-        photoUrl: picked.path,
+        photoUrl: permanentPath,
         useLocalPhoto: true,
       );
       await AuthService.instance.saveProfile(updated);
-      if (profile.isFirebaseUser) {
-        await AuthService.instance.updatePhotoUrl(profile.uid, picked.path);
-      }
       widget.onProfileUpdate?.call();
     }
   }
@@ -241,8 +248,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
     // Limpa TUDO localmente para garantir isolamento total (v2.1)
     await StorageService.instance.clearAll();
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove(kProfilePhotoKey);
     await NotificationService.instance.cancelAll();
 
     await AuthService.instance.signOut();
