@@ -256,15 +256,6 @@ Usuário marca subtarefa
 
 ---
 
-## Roadmap / TODOs
-
-- [ ] Implementar acionadores das trilhas `vespertino` e `noturno` no `XpService`
-- [ ] Migrar foto de perfil para Firebase Storage (persistência cross-device)
-- [ ] Migrar gerenciamento de estado de `StatefulWidget + setState` para Riverpod
-- [ ] Testes no iOS (não testado na versão atual)
-
----
-
 ## Licença
 
 Projeto pessoal. Todos os direitos reservados ao autor.
