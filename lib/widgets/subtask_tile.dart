@@ -4,9 +4,9 @@ import '../core/theme/app_text_styles.dart';
 import '../models/subtask.dart';
 
 class SubtaskTile extends StatelessWidget {
-  final Subtask  subtask;
+  final Subtask subtask;
   final VoidCallback? onToggle;
-  final bool     interactive;
+  final bool interactive;
 
   const SubtaskTile({
     super.key,
@@ -27,7 +27,7 @@ class SubtaskTile extends StatelessWidget {
             // ── Checkbox customizado ──────────────────────
             AnimatedContainer(
               duration: const Duration(milliseconds: 200),
-              width:  20,
+              width: 20,
               height: 20,
               decoration: BoxDecoration(
                 color: subtask.feita ? AppColors.primary : Colors.transparent,
@@ -37,11 +37,14 @@ class SubtaskTile extends StatelessWidget {
                       : AppColors.surfaceHover,
                   width: 1.5,
                 ),
-                borderRadius: BorderRadius.circular(6),
+                borderRadius: BorderRadius.circular(10),
               ),
               child: subtask.feita
-                  ? const Icon(Icons.check_rounded,
-                      size: 13, color: Colors.white)
+                  ? const Icon(
+                      Icons.check_rounded,
+                      size: 13,
+                      color: Colors.white,
+                    )
                   : null,
             ),
             const SizedBox(width: 10),
@@ -53,7 +56,11 @@ class SubtaskTile extends StatelessWidget {
                 style: subtask.feita
                     ? AppTextStyles.subtaskDone
                     : AppTextStyles.subtaskLabel,
-                child: Text(subtask.nome, maxLines: 2, overflow: TextOverflow.ellipsis),
+                child: Text(
+                  subtask.nome,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
             ),
           ],

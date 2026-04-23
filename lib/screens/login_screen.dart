@@ -50,16 +50,13 @@ class _LoginScreenState extends State<LoginScreen> {
       switch (result.status) {
         case AuthResultStatus.success:
           if (result.isNewUser) {
-            Navigator.of(context).pushReplacement(
+            Navigator.of(context).push(
               MaterialPageRoute(
                 builder: (_) => SignupScreen(googleProfile: result.profile),
               ),
             );
-          } else {
-            Navigator.of(context).pushReplacement(
-              MaterialPageRoute(builder: (_) => const HomeScreen()),
-            );
           }
+          // Caso contrário, o StreamBuilder no main.dart cuidará da navegação
           break;
 
         case AuthResultStatus.cancelled:

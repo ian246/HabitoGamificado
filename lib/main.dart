@@ -35,7 +35,7 @@ Future<void> main() async {
     await StorageService.instance.performDailyReset();
   }
 
-  runApp(const HabitFlowApp());
+  runApp(HabitFlowApp(key: HabitFlowApp.appKey));
 }
 
 class HabitFlowApp extends StatefulWidget {
@@ -87,7 +87,6 @@ class HabitFlowAppState extends State<HabitFlowApp> {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      key: HabitFlowApp.appKey,
       navigatorKey: navigatorKey,
       title: 'HabitFlow',
       debugShowCheckedModeBanner: false,

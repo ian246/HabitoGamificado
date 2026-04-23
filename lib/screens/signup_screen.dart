@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_app_habitos/main.dart';
 import '../core/theme/app_colors.dart';
 import '../core/theme/app_text_styles.dart';
 import '../models/user_profile.dart';
@@ -46,9 +47,7 @@ class _SignupScreenState extends State<SignupScreen> {
     // Pré-preenche com dados do Google quando disponível
     final nome = widget.googleProfile?.nome ?? '';
     _nomeCtrl = TextEditingController(text: nome);
-    _apelidoCtrl = TextEditingController(
-      text: _primeiroNome(nome),
-    );
+    _apelidoCtrl = TextEditingController(text: _primeiroNome(nome));
   }
 
   String _primeiroNome(String nome) {
@@ -94,9 +93,12 @@ class _SignupScreenState extends State<SignupScreen> {
     await AuthService.instance.saveProfile(profile);
 
     if (!mounted) return;
-    Navigator.of(context).pushReplacement(
-      MaterialPageRoute(builder: (_) => const HomeScreen()),
-    );
+
+    // Força o StreamBuilder do main.dart a reconstruir e detectar o perfil completo.
+    HabitFlowApp.appKey.currentState?.setSigningIn(false);
+
+    // Volta para a rota inicial. O StreamBuilder lá estará pronto para mostrar a HomeScreen.
+    Navigator.of(context).popUntil((route) => route.isFirst);
   }
 
   @override
@@ -304,9 +306,7 @@ class _GoogleAccountBadge extends StatelessWidget {
       decoration: BoxDecoration(
         color: isDark ? const Color(0xFF2A2A2A) : Colors.white,
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(
-          color: isDark ? Colors.white12 : Colors.black12,
-        ),
+        border: Border.all(color: isDark ? Colors.white12 : Colors.black12),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.10),
@@ -321,15 +321,10 @@ class _GoogleAccountBadge extends StatelessWidget {
           // Avatar
           CircleAvatar(
             radius: 13,
-            backgroundImage:
-                hasPhoto ? NetworkImage(profile.photoUrl) : null,
+            backgroundImage: hasPhoto ? NetworkImage(profile.photoUrl) : null,
             backgroundColor: AppColors.primary.withOpacity(0.18),
             child: !hasPhoto
-                ? Icon(
-                    Icons.person_rounded,
-                    size: 15,
-                    color: AppColors.primary,
-                  )
+                ? Icon(Icons.person_rounded, size: 15, color: AppColors.primary)
                 : null,
           ),
           const SizedBox(width: 7),

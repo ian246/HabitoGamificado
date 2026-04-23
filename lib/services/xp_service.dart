@@ -63,8 +63,7 @@ class XpService {
   static const int _xpStreakSemanal = 30;
   static const int _xpNovaMoldura = 100;
 
-  // ── Monotonicidade (Anti-Exploit) ─────────────────────────
-  static const Duration _rewardGap = Duration(hours: 20);
+
 
   // ── Ação: marcar subtarefa ────────────────────────────────
 
@@ -78,14 +77,12 @@ class XpService {
     final eraCompleto = habit.completoHoje;
     final today = HabitDateUtils.todayKey();
 
-    // 0. Validação de Monotonicidade (Time Travel / Clock Shift)
+    // 0. Validação de Monotonicidade (Apenas contra Time Travel para o passado)
     final agora = DateTime.now();
     if (profile.lastGlobalRewardTimestamp != null) {
-      final diff = agora.difference(profile.lastGlobalRewardTimestamp!);
-      // Se tentou premiar uma data futura e agora voltou pro passado, ou se o gap é muito curto
-      if (agora.isBefore(profile.lastGlobalRewardTimestamp!) ||
-          (diff < _rewardGap && !profile.activityLog.containsKey(today))) {
-        // Bloqueia ganho de XP se for tentativa de exploit de novo ciclo
+      // Se tentou premiar uma data futura e agora voltou pro passado
+      if (agora.isBefore(profile.lastGlobalRewardTimestamp!)) {
+        // Bloqueia ganho de XP se for tentativa de exploit de voltar o relógio
         return (habit, const XpResult());
       }
     }
@@ -112,11 +109,7 @@ class XpService {
       return (habitAtualizado, const XpResult());
     }
 
-    // Se Marcou:
-    // 3. Validação de "Cota Diária" (Itens novos não dão XP hoje)
-    final newItem = habit.isNewToday || subtask.isNewToday;
-    
-    int xp = (jaGanhouXpSub || newItem) ? 0 : _xpPorSubtarefa;
+    int xp = jaGanhouXpSub ? 0 : _xpPorSubtarefa;
     var perfilAtual = profile;
 
     if (!jaGanhouXpSub) {
@@ -132,14 +125,11 @@ class XpService {
         lastGlobalRewardTimestamp: agora,
       );
 
-      // Trilha Guerreiro: só progride se não for item novo (Cota Diária)
-      if (!newItem) {
-        perfilAtual = perfilAtual.incrementarTrilha(
-          'guerreiro',
-          1,
-          todayKey: today,
-        );
-      }
+      perfilAtual = perfilAtual.incrementarTrilha(
+        'guerreiro',
+        1,
+        todayKey: today,
+      );
     }
 
     // 3. Bônus se completou o hábito agora
@@ -148,10 +138,7 @@ class XpService {
       final jaGanhouXpComp = activityUpdated.isHabitRewarded(habit.id);
 
       if (!jaGanhouXpComp) {
-        // Só ganha XP de conclusão se o hábito não for novo hoje
-        if (!habit.isNewToday) {
-          xp += _xpHabitoCompleto;
-        }
+        xp += _xpHabitoCompleto;
 
         // Registrar conclusão no LOG CENTRALIZADO (sempre registra para evitar duplo prêmio amanhã)
         final novosHabComps = Set<String>.from(
@@ -168,22 +155,19 @@ class XpService {
           lastGlobalRewardTimestamp: agora,
         );
 
-        // Trilha Dedicado: só progride se não for item novo
-        if (!habit.isNewToday) {
+        perfilAtual = perfilAtual.incrementarTrilha(
+          'dedicado',
+          1,
+          todayKey: today,
+        );
+
+        // Ao fechar todas as subtarefas de um hábito da manhã:
+        if (habitAtualizado.periodo == 'manha') {
           perfilAtual = perfilAtual.incrementarTrilha(
-            'dedicado',
+            'madrugador',
             1,
             todayKey: today,
           );
-
-          // Ao fechar todas as subtarefas de um hábito da manhã:
-          if (habitAtualizado.periodo == 'manha') {
-            perfilAtual = perfilAtual.incrementarTrilha(
-              'madrugador',
-              1,
-              todayKey: today,
-            );
-          }
         }
 
         // Streak: atualizar 'constante'

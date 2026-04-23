@@ -266,7 +266,7 @@ class _HomeScreenState extends State<HomeScreen> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
-                  '${_greetingText()}, ${_profile!.apelido}',
+                  '${_greetingText()}, ${_profile!.apelido}!',
                   style: AppTextStyles.username,
                 ),
                 const SizedBox(height: 8),
