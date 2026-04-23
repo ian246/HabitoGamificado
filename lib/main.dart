@@ -9,6 +9,7 @@ import 'services/auth_service.dart';
 import 'services/notification_service.dart';
 import 'services/storage_service.dart';
 import 'screens/login_screen.dart';
+import 'screens/signup_screen.dart';
 import 'screens/home_screen.dart';
 
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
@@ -122,7 +123,14 @@ class HabitFlowAppState extends State<HabitFlowApp> {
             return const HomeScreen();
           }
 
-          // 5. Novo usuário sem nenhum perfil → tela de boas-vindas
+          // 5. Autenticado no Firebase, mas perfil INCOMPLETO → Cadastro
+          if (snapshot.data != null && !isComplete) {
+            return SignupScreen(
+              googleProfile: StorageService.instance.loadProfile(),
+            );
+          }
+
+          // 6. Novo usuário sem nenhum perfil → tela de boas-vindas
           return const LoginScreen();
         },
       ),
